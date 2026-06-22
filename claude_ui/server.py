@@ -46,6 +46,12 @@ class SessionPatch(BaseModel):
     notes: str | None = None
 
 
+class SettingsPatch(BaseModel):
+    active_threshold_secs: int | None = None
+    idle_threshold_secs: int | None = None
+    refresh_interval_secs: int | None = None
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
@@ -58,7 +64,6 @@ def heartbeat(payload: HeartbeatPayload) -> dict:
         iterm_tab=payload.iterm_tab or None,
         pid=payload.pid,
     )
-    # On first registration, ask the focus server to rename the iTerm tab
     if is_new and payload.iterm_tab:
         project = payload.cwd.split("/")[-1] if payload.cwd else "claude"
         new_name = f"{project}" + (f" · {payload.branch}" if payload.branch else "")
@@ -85,7 +90,6 @@ def _rename_iterm_tab(old_name: str, new_name: str) -> None:
 @app.post("/api/stop")
 async def stop(payload: StopPayload) -> dict:
     db.record_stop(payload.session_id, payload.stop_reason)
-    # Fire-and-forget summary generation so the hook response is instant
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
     return {"ok": True}
@@ -94,7 +98,6 @@ async def stop(payload: StopPayload) -> dict:
 async def _generate_summary(session_id: str, transcript_path: str) -> None:
     try:
         session = db.get_session(session_id)
-        # Don't overwrite a user-edited summary
         if session and session.get("summary_source") == "user":
             return
         loop = asyncio.get_event_loop()
@@ -110,8 +113,13 @@ async def _generate_summary(session_id: str, transcript_path: str) -> None:
 def sessions() -> list[dict]:
     rows = db.list_sessions()
     now = datetime.now(timezone.utc)
+    settings = db.get_settings()
     for row in rows:
-        row["status"] = _compute_status(row["last_seen"], now)
+        row["status"] = _compute_status(
+            row["last_seen"], now,
+            settings["active_threshold_secs"],
+            settings["idle_threshold_secs"],
+        )
     return rows
 
 
@@ -127,28 +135,46 @@ def patch_session(session_id: str, patch: SessionPatch) -> dict:
     return {"ok": True}
 
 
+@app.get("/api/settings")
+def get_settings() -> dict:
+    return db.get_settings()
+
+
+@app.patch("/api/settings")
+def patch_settings(patch: SettingsPatch) -> dict:
+    updates = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields provided")
+    return db.update_settings(updates)
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard() -> HTMLResponse:
     html_path = _STATIC_DIR / "index.html"
     return HTMLResponse(content=html_path.read_text())
 
 
-# Serve static files (JS, CSS) — must be after explicit routes
+# Serve static files — must be after explicit routes
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _compute_status(last_seen_iso: str, now: datetime) -> str:
+def _compute_status(
+    last_seen_iso: str,
+    now: datetime,
+    active_secs: int = 300,
+    idle_secs: int = 7200,
+) -> str:
     try:
         last = datetime.fromisoformat(last_seen_iso)
         if last.tzinfo is None:
             last = last.replace(tzinfo=timezone.utc)
         delta = (now - last).total_seconds()
-        if delta < 300:
+        if delta < active_secs:
             return "active"
-        if delta < 3600:
+        if delta < idle_secs:
             return "idle"
         return "stale"
     except Exception:

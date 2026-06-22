@@ -15,11 +15,18 @@ Endpoints:
 """
 
 import json
+import shutil
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 7843
+
+# Locate claude binary at startup — new iTerm2 tabs inherit a restricted PATH
+_CLAUDE_BIN = (
+    shutil.which("claude")
+    or "/Users/david.walker/.local/bin/claude"
+)
 
 _FOCUS_SCRIPT = """
 tell application "iTerm2"
@@ -39,7 +46,7 @@ tell application "iTerm2"
         end repeat
     end if
     tell current window
-        create tab with default profile command "claude --resume " & sessionId
+        create tab with default profile command "{claude_bin} --resume " & sessionId
     end tell
     return "opened"
 end tell
@@ -85,6 +92,7 @@ class Handler(BaseHTTPRequestHandler):
         script = _FOCUS_SCRIPT.format(
             tab=tab.replace('"', '\\"'),
             session_id=session_id.replace('"', '\\"'),
+            claude_bin=_CLAUDE_BIN.replace('"', '\\"'),
         )
         self._run_osascript(script)
 
