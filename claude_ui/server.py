@@ -34,6 +34,7 @@ class HeartbeatPayload(BaseModel):
     branch: str = ""
     iterm_tab: str = ""
     pid: int | None = None
+    iterm_session_uuid: str | None = None
 
 
 class StopPayload(BaseModel):
@@ -64,6 +65,7 @@ def heartbeat(payload: HeartbeatPayload) -> dict:
         branch=payload.branch or None,
         iterm_tab=payload.iterm_tab or None,
         pid=payload.pid,
+        iterm_session_uuid=payload.iterm_session_uuid or None,
     )
     if is_new and payload.iterm_tab:
         project = payload.cwd.split("/")[-1] if payload.cwd else "claude"

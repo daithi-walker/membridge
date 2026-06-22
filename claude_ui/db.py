@@ -41,6 +41,7 @@ _SETTINGS_DEFAULTS = {
 _MIGRATIONS = [
     "ALTER TABLE sessions ADD COLUMN pid INTEGER;",
     "ALTER TABLE sessions ADD COLUMN notes TEXT;",
+    "ALTER TABLE sessions ADD COLUMN iterm_session_uuid TEXT;",
 ]
 
 
@@ -82,6 +83,7 @@ def upsert_heartbeat(
     branch: str | None,
     iterm_tab: str | None,
     pid: int | None = None,
+    iterm_session_uuid: str | None = None,
 ) -> bool:
     """Returns True if this is a new session, False if existing."""
     project_name = Path(cwd).name
@@ -97,18 +99,20 @@ def upsert_heartbeat(
                        prompt_count = prompt_count + 1,
                        git_branch = COALESCE(?, git_branch),
                        iterm_tab = COALESCE(?, iterm_tab),
-                       pid = COALESCE(?, pid)
+                       pid = COALESCE(?, pid),
+                       iterm_session_uuid = COALESCE(?, iterm_session_uuid)
                    WHERE session_id = ?""",
-                (now, branch or None, iterm_tab or None, pid, session_id),
+                (now, branch or None, iterm_tab or None, pid, iterm_session_uuid or None, session_id),
             )
             return False
         else:
             conn.execute(
                 """INSERT INTO sessions
                    (session_id, cwd, project_name, git_branch, iterm_tab, pid,
-                    first_seen, last_seen, prompt_count)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
-                (session_id, cwd, project_name, branch or None, iterm_tab or None, pid, now, now),
+                    iterm_session_uuid, first_seen, last_seen, prompt_count)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+                (session_id, cwd, project_name, branch or None, iterm_tab or None, pid,
+                 iterm_session_uuid or None, now, now),
             )
             return True
 
