@@ -83,26 +83,31 @@
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text-muted);
-      padding: 3px 10px;
+      padding: 3px 7px;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 15px;
+      line-height: 1;
       font-family: inherit;
       transition: border-color 0.15s, color 0.15s;
     }
     #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
-    #refresh-indicator {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--stale);
-      transition: background 0.3s;
-      margin-left: 4px;
+    #refresh-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 7px;
+      border-radius: 4px;
       cursor: pointer;
-      flex-shrink: 0;
+      font-size: 14px;
+      line-height: 1;
+      font-family: inherit;
+      transition: border-color 0.15s, color 0.15s, transform 0.3s;
     }
-    #refresh-indicator:hover { background: var(--accent) !important; }
-    #refresh-indicator.spinning { background: var(--active); }
+    #refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #refresh-btn.spinning { animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .pill {
       font-size: 10px;
@@ -549,9 +554,9 @@
       <h1>MemBridge</h1>
       <div class="subtitle">Claude session tracker &amp; resume helper</div>
     </div>
-    <button id="theme-toggle">Light</button>
+    <button id="theme-toggle" title="Toggle theme">☀</button>
     <button id="settings-btn" title="Settings">⚙</button>
-    <div id="refresh-indicator"></div>
+    <button id="refresh-btn" title="Refresh">↻</button>
   </header>
 
   <!-- Settings modal -->

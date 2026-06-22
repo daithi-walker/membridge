@@ -9,8 +9,7 @@ const tbody = document.getElementById('sessions-body');
 const table = document.getElementById('sessions-table');
 const emptyState = document.getElementById('empty-state');
 const summaryCount = document.getElementById('summary-count');
-const indicator = document.getElementById('refresh-indicator');
-indicator.title = 'Click to refresh';
+const indicator = document.getElementById('refresh-btn');
 indicator.addEventListener('click', fetchSessions);
 const showStaleCheckbox = document.getElementById('show-stale');
 const themeToggle = document.getElementById('theme-toggle');
@@ -34,10 +33,12 @@ themeToggle.addEventListener('click', () => {
 function applyTheme(theme) {
   if (theme === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
-    themeToggle.textContent = 'Dark';
+    themeToggle.textContent = '☾';
+    themeToggle.title = 'Switch to dark mode';
   } else {
     document.documentElement.removeAttribute('data-theme');
-    themeToggle.textContent = 'Light';
+    themeToggle.textContent = '☀';
+    themeToggle.title = 'Switch to light mode';
   }
 }
 
@@ -125,7 +126,8 @@ async function fetchSessions() {
   } catch (e) {
     console.error('Fetch failed', e);
   } finally {
-    indicator.classList.remove('spinning');
+    // small delay so single-click spin is visible
+    setTimeout(() => indicator.classList.remove('spinning'), 400);
   }
 }
 
