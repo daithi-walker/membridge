@@ -98,7 +98,10 @@
       background: var(--stale);
       transition: background 0.3s;
       margin-left: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
     }
+    #refresh-indicator:hover { background: var(--accent) !important; }
     #refresh-indicator.spinning { background: var(--active); }
 
     .pill {

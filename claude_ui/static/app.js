@@ -10,6 +10,8 @@ const table = document.getElementById('sessions-table');
 const emptyState = document.getElementById('empty-state');
 const summaryCount = document.getElementById('summary-count');
 const indicator = document.getElementById('refresh-indicator');
+indicator.title = 'Click to refresh';
+indicator.addEventListener('click', fetchSessions);
 const showStaleCheckbox = document.getElementById('show-stale');
 const themeToggle = document.getElementById('theme-toggle');
 const projectSelect = document.getElementById('project-filter');
