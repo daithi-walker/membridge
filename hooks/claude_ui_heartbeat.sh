@@ -21,15 +21,22 @@ ITERM_TAB=$(osascript -e \
   'tell application "iTerm2" to tell current window to tell current tab to tell current session to return name' \
   2>/dev/null || true)
 
+# $ITERM_SESSION_ID format: w<n>t<n>p<n>:<UUID> — extract the UUID after the colon
+ITERM_UUID=""
+if [ -n "${ITERM_SESSION_ID:-}" ]; then
+  ITERM_UUID=$(echo "$ITERM_SESSION_ID" | cut -d: -f2)
+fi
+
 BODY=$(python3 -c "
 import json, sys
 print(json.dumps({
-    'session_id': sys.argv[1],
-    'cwd':        sys.argv[2],
-    'branch':     sys.argv[3],
-    'iterm_tab':  sys.argv[4],
-    'pid':        int(sys.argv[5]) if sys.argv[5] else None,
-}))" "$SESSION_ID" "$CWD" "${BRANCH:-}" "${ITERM_TAB:-}" "${CLAUDE_PID:-}" 2>/dev/null)
+    'session_id':          sys.argv[1],
+    'cwd':                 sys.argv[2],
+    'branch':              sys.argv[3],
+    'iterm_tab':           sys.argv[4],
+    'pid':                 int(sys.argv[5]) if sys.argv[5] else None,
+    'iterm_session_uuid':  sys.argv[6] or None,
+}))" "$SESSION_ID" "$CWD" "${BRANCH:-}" "${ITERM_TAB:-}" "${CLAUDE_PID:-}" "${ITERM_UUID:-}" 2>/dev/null)
 
 curl -s -X POST http://localhost:7842/api/heartbeat \
   -H "Content-Type: application/json" \
