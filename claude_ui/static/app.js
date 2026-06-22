@@ -246,14 +246,14 @@ function openPanel(s, scrollIntoView) {
   document.getElementById('panel-summary').textContent = s.summary || '';
 
   const focusBtn = document.getElementById('panel-focus-btn');
-  focusBtn.textContent = s.iterm_tab ? '⌘ Focus' : '⌘ Open';
+  focusBtn.textContent = s.pid ? '⌘ Focus' : '⌘ Open';
   focusBtn.onclick = async () => {
     focusBtn.textContent = '…';
     try {
       const res = await fetch('http://localhost:7843/focus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: s.session_id, tab: s.iterm_tab || '' }),
+        body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -263,7 +263,7 @@ function openPanel(s, scrollIntoView) {
       focusBtn.textContent = '✗ Failed';
       console.error('Focus error:', err);
     }
-    setTimeout(() => { focusBtn.textContent = s.iterm_tab ? '⌘ Focus' : '⌘ Open'; }, 2500);
+    setTimeout(() => { focusBtn.textContent = s.pid ? '⌘ Focus' : '⌘ Open'; }, 2500);
   };
 
   const resumeBtn = document.getElementById('panel-resume-btn');

@@ -5,13 +5,16 @@ Runs on localhost:7843 — separate from the Docker container because
 osascript must execute on the Mac host, not inside a Linux container.
 
 Endpoints:
-  POST /focus   {"session_id": "abc...", "tab": "my-project"}
-                Focuses the iTerm2 tab whose name contains `tab`.
-                Falls back to opening a new tab with `claude --resume <id>`.
+  POST /focus   {"session_id": "...", "pid": 12345}
+                Focus strategy (in order):
+                1. Match by PID → TTY → iTerm2 session (reliable)
+                2. Fall back to opening a new tab with claude --resume <id>
 
-  POST /rename  {"old_name": "bash", "new_name": "alembic · feat/ALGDE-99"}
-                Renames the first iTerm2 tab whose name contains `old_name`.
-                Called by the heartbeat hook on first registration.
+  POST /rename  {"old_name": "bash", "new_name": "alembic · feat/branch"}
+                Renames the first iTerm2 session whose name contains old_name.
+
+  GET  /sessions
+                Lists all iTerm2 session names (debug).
 """
 
 import json
@@ -22,31 +25,38 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 7843
 
-# Locate claude binary at startup — new iTerm2 tabs inherit a restricted PATH
+# Locate claude binary at startup — new iTerm2 tabs have a restricted PATH
 _CLAUDE_BIN = (
     shutil.which("claude")
     or "/Users/david.walker/.local/bin/claude"
 )
 
-_FOCUS_SCRIPT = """
+_FOCUS_BY_TTY_SCRIPT = """
 tell application "iTerm2"
-    set matchTab to "{tab}"
-    set sessionId to "{session_id}"
-    if matchTab is not "" then
-        repeat with w in windows
-            repeat with t in tabs of w
-                repeat with s in sessions of t
-                    if name of s contains matchTab then
+    set targetTty to "{tty}"
+    repeat with w in windows
+        repeat with t in tabs of w
+            repeat with s in sessions of t
+                try
+                    -- iTerm2 tty includes /dev/ prefix; ps output does not
+                    set sTty to tty of s
+                    if sTty ends with targetTty then
                         select w
                         select t
                         return "focused"
                     end if
-                end repeat
+                end try
             end repeat
         end repeat
-    end if
+    end repeat
+    return "not_found"
+end tell
+"""
+
+_OPEN_TAB_SCRIPT = """
+tell application "iTerm2"
     tell current window
-        create tab with default profile command "{claude_bin} --resume " & sessionId
+        create tab with default profile command "{claude_bin} --resume {session_id}"
     end tell
     return "opened"
 end tell
@@ -124,16 +134,43 @@ end tell
 
     def _handle_focus(self, body):
         session_id = body.get("session_id", "")
-        tab = body.get("tab", "")
+        pid = body.get("pid")
         if not session_id:
             self._respond(400, {"error": "session_id required"})
             return
-        script = _FOCUS_SCRIPT.format(
-            tab=tab.replace('"', '\\"'),
-            session_id=session_id.replace('"', '\\"'),
+
+        # Strategy 1: find iTerm2 session by PID → TTY
+        if pid:
+            tty = self._pid_to_tty(int(pid))
+            if tty:
+                script = _FOCUS_BY_TTY_SCRIPT.format(tty=tty.replace('"', '\\"'))
+                result = subprocess.run(
+                    ["osascript", "-e", script],
+                    capture_output=True, text=True, timeout=5
+                )
+                action = result.stdout.strip()
+                if action == "focused":
+                    self._respond(200, {"ok": True, "action": "focused"})
+                    return
+
+        # Strategy 2: open a new tab with claude --resume
+        script = _OPEN_TAB_SCRIPT.format(
             claude_bin=_CLAUDE_BIN.replace('"', '\\"'),
+            session_id=session_id.replace('"', '\\"'),
         )
-        self._run_osascript(script)
+        self._run_osascript(script, default_action="opened")
+
+    @staticmethod
+    def _pid_to_tty(pid: int) -> str | None:
+        try:
+            result = subprocess.run(
+                ["ps", "-o", "tty=", "-p", str(pid)],
+                capture_output=True, text=True, timeout=3
+            )
+            tty = result.stdout.strip()
+            return tty if tty and tty != "??" else None
+        except Exception:
+            return None
 
     def _handle_rename(self, body):
         old_name = body.get("old_name", "")
@@ -147,13 +184,13 @@ end tell
         )
         self._run_osascript(script)
 
-    def _run_osascript(self, script):
+    def _run_osascript(self, script, default_action="ok"):
         try:
             result = subprocess.run(
                 ["osascript", "-e", script],
                 capture_output=True, text=True, timeout=5
             )
-            action = result.stdout.strip() or "ok"
+            action = result.stdout.strip() or default_action
             self._respond(200, {"ok": True, "action": action})
         except Exception as e:
             self._respond(500, {"error": str(e)})
