@@ -25,6 +25,19 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 """
 
+_SETTINGS_SQL = """
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+"""
+
+_SETTINGS_DEFAULTS = {
+    "active_threshold_secs": "300",    # 5 min
+    "idle_threshold_secs":   "7200",   # 2 h
+    "refresh_interval_secs": "30",
+}
+
 _MIGRATIONS = [
     "ALTER TABLE sessions ADD COLUMN pid INTEGER;",
     "ALTER TABLE sessions ADD COLUMN notes TEXT;",
@@ -39,11 +52,17 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _conn() as conn:
         conn.execute(_CREATE_SQL)
+        conn.execute(_SETTINGS_SQL)
         for sql in _MIGRATIONS:
             try:
                 conn.execute(sql)
             except Exception:
                 pass
+        # Seed defaults (INSERT OR IGNORE — never overwrite user values)
+        for k, v in _SETTINGS_DEFAULTS.items():
+            conn.execute(
+                "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v)
+            )
 
 
 @contextmanager
@@ -132,3 +151,23 @@ def list_sessions(include_stale: bool = True) -> list[dict]:
             "SELECT * FROM sessions ORDER BY last_seen DESC"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_settings() -> dict:
+    with _conn() as conn:
+        rows = conn.execute("SELECT key, value FROM settings").fetchall()
+    result = dict(_SETTINGS_DEFAULTS)  # start with defaults
+    result.update({r["key"]: r["value"] for r in rows})
+    return {k: int(v) for k, v in result.items()}
+
+
+def update_settings(updates: dict) -> dict:
+    allowed = set(_SETTINGS_DEFAULTS.keys())
+    with _conn() as conn:
+        for k, v in updates.items():
+            if k in allowed:
+                conn.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                    (k, str(int(v))),
+                )
+    return get_settings()

@@ -1,4 +1,5 @@
-const REFRESH_MS = 30_000;
+let REFRESH_MS = 30_000;
+let refreshTimer = null;
 let sessions = [];
 let showStale = false;
 let projectFilter = '';
@@ -8,12 +9,15 @@ const tbody = document.getElementById('sessions-body');
 const table = document.getElementById('sessions-table');
 const emptyState = document.getElementById('empty-state');
 const summaryCount = document.getElementById('summary-count');
-const indicator = document.getElementById('refresh-indicator');
+const indicator = document.getElementById('refresh-btn');
+indicator.addEventListener('click', fetchSessions);
 const showStaleCheckbox = document.getElementById('show-stale');
 const themeToggle = document.getElementById('theme-toggle');
 const projectSelect = document.getElementById('project-filter');
 const panel = document.getElementById('side-panel');
 const panelClose = document.getElementById('panel-close');
+const settingsBtn = document.getElementById('settings-btn');
+const settingsOverlay = document.getElementById('settings-overlay');
 
 // Theme — dark default, persist to localStorage
 const savedTheme = localStorage.getItem('claude-ui-theme') || 'dark';
@@ -29,25 +33,95 @@ themeToggle.addEventListener('click', () => {
 function applyTheme(theme) {
   if (theme === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
-    themeToggle.textContent = 'Dark';
+    themeToggle.textContent = '☾';
+    themeToggle.title = 'Switch to dark mode';
   } else {
     document.documentElement.removeAttribute('data-theme');
-    themeToggle.textContent = 'Light';
+    themeToggle.textContent = '☀';
+    themeToggle.title = 'Switch to light mode';
   }
 }
 
+// Restore persisted filter state
+showStale = localStorage.getItem('mb-show-stale') === 'true';
+showStaleCheckbox.checked = showStale;
+projectFilter = localStorage.getItem('mb-project-filter') || '';
+
 showStaleCheckbox.addEventListener('change', () => {
   showStale = showStaleCheckbox.checked;
+  localStorage.setItem('mb-show-stale', showStale);
   render(sessions);
 });
 
 projectSelect.addEventListener('change', () => {
   projectFilter = projectSelect.value;
+  localStorage.setItem('mb-project-filter', projectFilter);
   render(sessions);
 });
 
 panelClose.addEventListener('click', closePanel);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (settingsOverlay.classList.contains('open')) closeSettings();
+    else closePanel();
+  }
+});
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+settingsBtn.addEventListener('click', openSettings);
+document.getElementById('settings-cancel').addEventListener('click', closeSettings);
+document.getElementById('settings-save').addEventListener('click', saveSettings);
+settingsOverlay.addEventListener('click', e => { if (e.target === settingsOverlay) closeSettings(); });
+
+async function openSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const s = await res.json();
+    document.getElementById('set-active').value = s.active_threshold_secs;
+    document.getElementById('set-idle').value = s.idle_threshold_secs;
+    document.getElementById('set-refresh').value = s.refresh_interval_secs;
+  } catch (e) {
+    console.error('Failed to load settings', e);
+  }
+  settingsOverlay.classList.add('open');
+}
+
+function closeSettings() {
+  settingsOverlay.classList.remove('open');
+}
+
+async function saveSettings() {
+  const active = parseInt(document.getElementById('set-active').value, 10);
+  const idle = parseInt(document.getElementById('set-idle').value, 10);
+  const refresh = parseInt(document.getElementById('set-refresh').value, 10);
+  if (isNaN(active) || isNaN(idle) || isNaN(refresh)) return;
+
+  try {
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        active_threshold_secs: active,
+        idle_threshold_secs: idle,
+        refresh_interval_secs: refresh,
+      }),
+    });
+    REFRESH_MS = refresh * 1000;
+    restartRefreshTimer();
+    closeSettings();
+    fetchSessions();
+  } catch (e) {
+    console.error('Failed to save settings', e);
+  }
+}
+
+// ── Data fetching ─────────────────────────────────────────────────────────────
+
+function restartRefreshTimer() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(fetchSessions, REFRESH_MS);
+}
 
 async function fetchSessions() {
   indicator.classList.add('spinning');
@@ -59,7 +133,8 @@ async function fetchSessions() {
   } catch (e) {
     console.error('Fetch failed', e);
   } finally {
-    indicator.classList.remove('spinning');
+    // small delay so single-click spin is visible
+    setTimeout(() => indicator.classList.remove('spinning'), 400);
   }
 }
 
@@ -98,7 +173,6 @@ function render(all) {
     tbody.appendChild(buildRow(s));
   }
 
-  // Re-render open panel if its session was refreshed
   if (activePanel) {
     const fresh = sessions.find(s => s.session_id === activePanel);
     if (fresh) openPanel(fresh, false);
@@ -109,7 +183,6 @@ function buildRow(s) {
   const tr = document.createElement('tr');
   if (activePanel === s.session_id) tr.classList.add('row-active');
 
-  // Status
   const statusTd = td('col-status');
   const badge = document.createElement('span');
   badge.className = `pill badge-${s.status}`;
@@ -117,34 +190,26 @@ function buildRow(s) {
   statusTd.appendChild(badge);
   tr.appendChild(statusTd);
 
-  // Project + session ID
   const projTd = td('col-project');
   projTd.innerHTML = `<div class="project-name">${esc(s.project_name)}</div><div class="session-id">${esc(s.session_id.slice(0, 8))}…</div>`;
   tr.appendChild(projTd);
 
-  // Branch
   const branchTd = td('col-branch');
   branchTd.innerHTML = `<span class="branch-text">${esc(s.git_branch || '—')}</span>`;
   tr.appendChild(branchTd);
 
-  // Last active
   const lastTd = td('col-last');
   lastTd.innerHTML = `<span class="last-text" title="${esc(s.last_seen)}">${relativeTime(s.last_seen)}</span>`;
   tr.appendChild(lastTd);
 
-  // Prompt count
   const countTd = td('col-prompts');
   countTd.innerHTML = `<span class="count-text">${s.prompt_count}</span>`;
   tr.appendChild(countTd);
 
-  // Summary (short, read-only in table — edit in panel)
   const summaryTd = td('col-summary');
   const summaryEl = document.createElement('div');
   summaryEl.className = 'summary-text' + (s.summary ? '' : ' empty');
   summaryEl.textContent = s.summary ? s.summary.slice(0, 120) + (s.summary.length > 120 ? '…' : '') : '';
-  if (!s.summary) {
-    summaryEl.textContent = '';
-  }
   if (s.summary && s.summary_source === 'auto') {
     const autoBadge = document.createElement('span');
     autoBadge.className = 'auto-badge';
@@ -154,7 +219,6 @@ function buildRow(s) {
   summaryTd.appendChild(summaryEl);
   tr.appendChild(summaryTd);
 
-  // Chevron — opens panel
   const chevTd = td('col-chevron');
   chevTd.innerHTML = `<span class="chevron">›</span>`;
   tr.appendChild(chevTd);
@@ -170,10 +234,8 @@ function buildRow(s) {
 function openPanel(s, scrollIntoView) {
   activePanel = s.session_id;
 
-  // Highlight row
   document.querySelectorAll('#sessions-body tr').forEach(r => r.classList.remove('row-active'));
-  const rows = document.querySelectorAll('#sessions-body tr');
-  rows.forEach(r => {
+  document.querySelectorAll('#sessions-body tr').forEach(r => {
     const idEl = r.querySelector('.session-id');
     if (idEl && idEl.textContent.startsWith(s.session_id.slice(0, 8))) {
       r.classList.add('row-active');
@@ -195,38 +257,38 @@ function openPanel(s, scrollIntoView) {
   document.getElementById('panel-summary').textContent = s.summary || '';
 
   const focusBtn = document.getElementById('panel-focus-btn');
-  focusBtn.textContent = s.iterm_tab ? '⌘ Focus' : '⌘ Open';
+  focusBtn.textContent = s.pid ? '⌘ Focus' : '⌘ Open';
   focusBtn.onclick = async () => {
     focusBtn.textContent = '…';
     try {
       const res = await fetch('http://localhost:7843/focus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: s.session_id, tab: s.iterm_tab || '' }),
+        body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null, cwd: s.cwd || null }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (data.error) throw new Error(data.error);
       focusBtn.textContent = data.action === 'focused' ? '✓ Focused' : '✓ Opened';
-    } catch {
-      focusBtn.textContent = '✗ No focus server';
+    } catch (err) {
+      focusBtn.textContent = '✗ Failed';
+      console.error('Focus error:', err);
     }
-    setTimeout(() => { focusBtn.textContent = s.iterm_tab ? '⌘ Focus' : '⌘ Open'; }, 2000);
+    setTimeout(() => { focusBtn.textContent = s.pid ? '⌘ Focus' : '⌘ Open'; }, 2500);
   };
 
   const resumeBtn = document.getElementById('panel-resume-btn');
   resumeBtn.onclick = () => {
-    const cmd = `claude --resume ${s.session_id}`;
-    navigator.clipboard.writeText(cmd).then(() => {
+    navigator.clipboard.writeText(`claude --resume ${s.session_id}`).then(() => {
       resumeBtn.textContent = 'Copied!';
       resumeBtn.classList.add('copied');
       setTimeout(() => { resumeBtn.textContent = 'Copy resume'; resumeBtn.classList.remove('copied'); }, 2000);
     });
   };
 
-  // Notes — editable textarea
   const notesArea = document.getElementById('panel-notes');
   notesArea.value = s.notes || '';
   notesArea._session = s;
-  notesArea._saveTimer = null;
 
   panel.classList.add('open');
   document.getElementById('layout').classList.add('panel-open');
@@ -239,7 +301,6 @@ function closePanel() {
   document.querySelectorAll('#sessions-body tr').forEach(r => r.classList.remove('row-active'));
 }
 
-// Auto-save notes on input (debounced 1s)
 document.getElementById('panel-notes').addEventListener('input', function() {
   clearTimeout(this._saveTimer);
   this._saveTimer = setTimeout(() => saveNotes(this), 1000);
@@ -248,16 +309,14 @@ document.getElementById('panel-notes').addEventListener('input', function() {
 async function saveNotes(textarea) {
   const s = textarea._session;
   if (!s) return;
-  const notes = textarea.value;
   await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ notes }),
+    body: JSON.stringify({ notes: textarea.value }),
   });
-  s.notes = notes;
+  s.notes = textarea.value;
 }
 
-// Summary edit in panel
 document.getElementById('panel-summary').addEventListener('click', function() {
   const s = sessions.find(x => x.session_id === activePanel);
   if (!s) return;
@@ -332,6 +391,14 @@ function formatDateTime(isoStr) {
   return new Date(isoStr).toLocaleString();
 }
 
-// Initial load + polling
-fetchSessions();
-setInterval(fetchSessions, REFRESH_MS);
+// ── Boot ──────────────────────────────────────────────────────────────────────
+
+(async () => {
+  try {
+    const res = await fetch('/api/settings');
+    const s = await res.json();
+    REFRESH_MS = s.refresh_interval_secs * 1000;
+  } catch (_) {}
+  fetchSessions();
+  restartRefreshTimer();
+})();

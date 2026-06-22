@@ -83,23 +83,31 @@
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text-muted);
-      padding: 3px 10px;
+      padding: 3px 7px;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 15px;
+      line-height: 1;
       font-family: inherit;
       transition: border-color 0.15s, color 0.15s;
     }
     #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
-    #refresh-indicator {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--stale);
-      transition: background 0.3s;
-      margin-left: 4px;
+    #refresh-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      font-family: inherit;
+      transition: border-color 0.15s, color 0.15s, transform 0.3s;
     }
-    #refresh-indicator.spinning { background: var(--active); }
+    #refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #refresh-btn.spinning { animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .pill {
       font-size: 10px;
@@ -439,6 +447,105 @@
       border: 1px solid var(--border);
       display: inline-block;
     }
+
+    /* ── Settings modal ── */
+    #settings-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    [data-theme="light"] #settings-overlay { background: rgba(0,0,0,0.3); }
+    #settings-overlay.open { display: flex; }
+
+    #settings-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      width: 360px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    #settings-modal h2 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .setting-row {
+      margin-bottom: 16px;
+    }
+
+    .setting-row label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .setting-row .setting-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      opacity: 0.7;
+    }
+
+    .setting-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .setting-input-row input[type="number"] {
+      width: 80px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+    .setting-input-row input[type="number"]:focus { border-color: var(--accent); }
+
+    .setting-unit {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 24px;
+      justify-content: flex-end;
+    }
+
+    #settings-save {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    #settings-save:hover { background: #4a3a10; }
+
+    #settings-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      line-height: 1;
+    }
+    #settings-btn:hover { border-color: var(--accent); color: var(--accent); }
   </style>
 </head>
 <body>
@@ -447,9 +554,44 @@
       <h1>MemBridge</h1>
       <div class="subtitle">Claude session tracker &amp; resume helper</div>
     </div>
-    <button id="theme-toggle">Light</button>
-    <div id="refresh-indicator"></div>
+    <button id="theme-toggle" title="Toggle theme">☀</button>
+    <button id="settings-btn" title="Settings">⚙</button>
+    <button id="refresh-btn" title="Refresh">↻</button>
   </header>
+
+  <!-- Settings modal -->
+  <div id="settings-overlay">
+    <div id="settings-modal">
+      <h2>Settings</h2>
+      <div class="setting-row">
+        <label>Active threshold</label>
+        <div class="setting-input-row">
+          <input type="number" id="set-active" min="30" max="3600" step="30">
+          <span class="setting-unit">seconds</span>
+        </div>
+        <div class="setting-hint">Sessions seen within this window show as active</div>
+      </div>
+      <div class="setting-row">
+        <label>Idle threshold</label>
+        <div class="setting-input-row">
+          <input type="number" id="set-idle" min="60" max="86400" step="60">
+          <span class="setting-unit">seconds</span>
+        </div>
+        <div class="setting-hint">Sessions beyond this are marked stale</div>
+      </div>
+      <div class="setting-row">
+        <label>Auto-refresh interval</label>
+        <div class="setting-input-row">
+          <input type="number" id="set-refresh" min="5" max="300" step="5">
+          <span class="setting-unit">seconds</span>
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button id="settings-cancel">Cancel</button>
+        <button id="settings-save">Save</button>
+      </div>
+    </div>
+  </div>
 
   <div id="controls">
     <label>
