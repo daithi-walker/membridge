@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-ui"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "anthropic[vertex]>=0.40",
+]
+
+[project.scripts]
+claude-ui = "claude_ui.server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["claude_ui*"]

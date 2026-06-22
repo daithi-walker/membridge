@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Sessions</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #111111;
+      --surface:     #1c1c1c;
+      --surface2:    #252525;
+      --border:      #2e2e2e;
+      --text:        #e0e0e0;
+      --text-muted:  #888888;
+      --accent:      #eba81f;
+      --accent-dim:  #3a2e0a;
+      --active:      #22c55e;
+      --active-dim:  #14532d;
+      --idle:        #f59e0b;
+      --idle-dim:    #451a03;
+      --stale:       #555555;
+      --stale-dim:   #1c1c1c;
+    }
+
+    [data-theme="light"] {
+      --bg:          #fafafa;
+      --surface:     #ffffff;
+      --surface2:    #f5f5f5;
+      --border:      #e0e0e0;
+      --text:        #212121;
+      --text-muted:  #757575;
+      --accent:      #c8860a;
+      --accent-dim:  #fef3dc;
+      --active:      #16a34a;
+      --active-dim:  #dcfce7;
+      --idle:        #d97706;
+      --idle-dim:    #fef9c3;
+      --stale:       #9e9e9e;
+      --stale-dim:   #f5f5f5;
+    }
+
+    html { transition: background 0.2s, color 0.2s; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+
+    header .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    #theme-toggle {
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    #refresh-indicator {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--stale);
+      transition: background 0.3s;
+      margin-left: 12px;
+    }
+    #refresh-indicator.spinning { background: var(--active); }
+
+    .pill {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .badge-active { background: var(--active-dim); color: var(--active); }
+    .badge-idle   { background: var(--idle-dim);   color: var(--idle); }
+    .badge-stale  { background: var(--stale-dim);  color: var(--stale); }
+
+    #controls {
+      padding: 10px 24px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    #controls label {
+      color: var(--text-muted);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    #controls input[type="checkbox"] { accent-color: var(--accent); }
+
+    #summary-count {
+      margin-left: auto;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      background: var(--surface);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr:hover { background: var(--surface); }
+
+    td { padding: 10px 16px; vertical-align: top; }
+
+    .col-status  { width: 76px; }
+    .col-project { width: 140px; }
+    .col-branch  { width: 180px; }
+    .col-tab     { width: 120px; }
+    .col-last    { width: 100px; white-space: nowrap; }
+    .col-prompts { width: 56px; text-align: right; }
+    .col-summary { min-width: 260px; }
+    .col-actions { width: 110px; white-space: nowrap; }
+
+    .project-name { font-weight: 600; color: var(--text); }
+    .session-id   { font-family: monospace; font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+    .branch-text  { font-family: monospace; font-size: 12px; color: var(--text-muted); }
+    .tab-text     { font-size: 12px; color: var(--text-muted); }
+    .last-text    { font-size: 12px; color: var(--text-muted); }
+    .count-text   { font-size: 12px; color: var(--text-muted); }
+
+    .summary-text {
+      font-size: 13px;
+      color: var(--text);
+      cursor: text;
+      min-height: 18px;
+      line-height: 1.4;
+    }
+
+    .summary-text.empty::before {
+      content: "Click to add summary…";
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .auto-badge {
+      font-size: 10px;
+      color: var(--accent);
+      margin-left: 5px;
+      vertical-align: middle;
+      opacity: 0.8;
+    }
+
+    textarea.summary-edit {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 6px 8px;
+      font-size: 13px;
+      resize: vertical;
+      min-height: 64px;
+      font-family: inherit;
+      outline: none;
+      line-height: 1.4;
+    }
+
+    button {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    button:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-resume {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+      background: var(--accent-dim);
+    }
+
+    .btn-resume:hover { background: #4a3a10; }
+
+    .btn-resume.copied {
+      color: var(--active) !important;
+      border-color: var(--active) !important;
+      background: var(--active-dim) !important;
+    }
+
+    #empty-state {
+      text-align: center;
+      padding: 80px 24px;
+      color: var(--text-muted);
+    }
+
+    #empty-state p { margin-bottom: 16px; }
+
+    #empty-state code {
+      font-size: 12px;
+      color: var(--text);
+      background: var(--surface2);
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Claude Sessions</h1>
+      <div class="subtitle">Session tracker &amp; resume helper</div>
+    </div>
+    <button id="theme-toggle">Light</button>
+    <div id="refresh-indicator"></div>
+  </header>
+
+  <div id="controls">
+    <label>
+      <input type="checkbox" id="show-stale"> Show stale sessions
+    </label>
+    <span id="summary-count"></span>
+  </div>
+
+  <div id="content">
+    <table id="sessions-table" style="display:none">
+      <thead>
+        <tr>
+          <th class="col-status">Status</th>
+          <th class="col-project">Project</th>
+          <th class="col-branch">Branch</th>
+          <th class="col-tab">iTerm Tab</th>
+          <th class="col-last">Last Active</th>
+          <th class="col-prompts">Prompts</th>
+          <th class="col-summary">Summary</th>
+          <th class="col-actions">Resume</th>
+        </tr>
+      </thead>
+      <tbody id="sessions-body"></tbody>
+    </table>
+    <div id="empty-state" style="display:none">
+      <p>No sessions yet. Claude Code sessions appear here automatically once the hooks are installed.</p>
+      <code>Run scripts/install.sh to get started</code>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
