@@ -16,9 +16,9 @@ BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null || true)
 # Parent PID = the Claude process that fired this hook
 CLAUDE_PID=$PPID
 
-# Best-effort iTerm2 tab name — silently skipped if not running
+# Best-effort iTerm2 session name — silently skipped if not running in iTerm2
 ITERM_TAB=$(osascript -e \
-  'tell application "iTerm2" to get name of current tab of current window' \
+  'tell application "iTerm2" to tell current window to tell current tab to tell current session to return name' \
   2>/dev/null || true)
 
 BODY=$(python3 -c "

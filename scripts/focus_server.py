@@ -25,15 +25,19 @@ _FOCUS_SCRIPT = """
 tell application "iTerm2"
     set matchTab to "{tab}"
     set sessionId to "{session_id}"
-    repeat with w in windows
-        repeat with t in tabs of w
-            if name of t contains matchTab then
-                select w
-                select t
-                return "focused"
-            end if
+    if matchTab is not "" then
+        repeat with w in windows
+            repeat with t in tabs of w
+                repeat with s in sessions of t
+                    if name of s contains matchTab then
+                        select w
+                        select t
+                        return "focused"
+                    end if
+                end repeat
+            end repeat
         end repeat
-    end repeat
+    end if
     tell current window
         create tab with default profile command "claude --resume " & sessionId
     end tell
@@ -48,7 +52,7 @@ tell application "iTerm2"
     repeat with w in windows
         repeat with t in tabs of w
             repeat with s in sessions of t
-                if name of t contains matchName then
+                if name of s contains matchName then
                     set name of s to newName
                     return "renamed"
                 end if
