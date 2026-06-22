@@ -93,6 +93,13 @@ def upsert_heartbeat(
             "SELECT session_id FROM sessions WHERE session_id = ?", (session_id,)
         ).fetchone()
         if existing:
+            # Only update iterm_tab from heartbeat if the session has no UUID yet
+            # (once sync_iterm_tabs.py has run and stored a UUID, the alias is
+            # authoritative and heartbeat osascript names should not overwrite it)
+            uuid_known = conn.execute(
+                "SELECT iterm_session_uuid FROM sessions WHERE session_id = ?", (session_id,)
+            ).fetchone()[0]
+            tab_update = iterm_tab if not uuid_known else None
             conn.execute(
                 """UPDATE sessions
                    SET last_seen = ?,
@@ -102,7 +109,7 @@ def upsert_heartbeat(
                        pid = COALESCE(?, pid),
                        iterm_session_uuid = COALESCE(?, iterm_session_uuid)
                    WHERE session_id = ?""",
-                (now, branch or None, iterm_tab or None, pid, iterm_session_uuid or None, session_id),
+                (now, branch or None, tab_update or None, pid, iterm_session_uuid or None, session_id),
             )
             return False
         else:
