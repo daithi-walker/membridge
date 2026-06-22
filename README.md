@@ -38,8 +38,9 @@ localhost:7843  Focus server       (host Python — needs osascript)
 - macOS (osascript / iTerm2 integration)
 - Docker / OrbStack
 - Python 3.11+ (for the focus server and install script)
-- Claude Code with Vertex AI (`CLAUDE_CODE_USE_VERTEX=1`)
-- GCP project with Vertex AI API enabled and ADC configured (`gcloud auth application-default login`)
+- An Anthropic API key **or** Vertex AI (for auto-summary via Claude haiku)
+
+> **Note:** Claude Code itself can run on a Claude.ai subscription (OAuth, no API key needed). The auto-summariser runs inside Docker and calls the API directly — it requires either `ANTHROPIC_API_KEY` (default) or Vertex AI credentials (`CLAUDE_CODE_USE_VERTEX=1`). The Claude.ai subscription OAuth cannot be used here.
 
 ## Setup
 
@@ -48,7 +49,7 @@ localhost:7843  Focus server       (host Python — needs osascript)
 Create a `.env` file (see `.env.example`):
 
 ```bash
-VERTEX_PROJECT_ID=your-gcp-project-id
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ### 2. Run the installer

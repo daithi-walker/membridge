@@ -48,7 +48,9 @@ Key columns: `session_id`, `cwd`, `project_name`, `git_branch`, `pid`, `first_se
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VERTEX_PROJECT_ID` | — | GCP project for Vertex AI summarisation |
-| `VERTEX_REGION` | `global` | Vertex AI region |
+| `ANTHROPIC_API_KEY` | — | Anthropic API key for auto-summary (default provider) |
 | `CLAUDE_SUMMARY_MODEL` | `claude-haiku-4-5-20251001` | Model for auto-summary |
 | `CLAUDE_UI_DB` | `~/.claude-ui/sessions.db` | SQLite DB path (inside container: `/data/sessions.db`) |
+| `CLAUDE_CODE_USE_VERTEX` | — | Set to `1` to use Vertex AI instead of Anthropic API |
+| `ANTHROPIC_VERTEX_PROJECT_ID` | — | GCP project ID (Vertex only) |
+| `CLOUD_ML_REGION` | `global` | Vertex AI region (Vertex only) |

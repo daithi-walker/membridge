@@ -1,4 +1,4 @@
-"""Auto-summary of Claude sessions via Vertex AI."""
+"""Auto-summary of Claude sessions via Anthropic API or Vertex AI."""
 import json
 import logging
 import os
@@ -6,10 +6,19 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ID = os.getenv("VERTEX_PROJECT_ID", "")
-REGION = os.getenv("VERTEX_REGION", "global")
+USE_VERTEX = os.getenv("CLAUDE_CODE_USE_VERTEX", "") == "1"
+PROJECT_ID = os.getenv("ANTHROPIC_VERTEX_PROJECT_ID", "") or os.getenv("VERTEX_PROJECT_ID", "")
+REGION = os.getenv("CLOUD_ML_REGION", "") or os.getenv("VERTEX_REGION", "global")
 MODEL = os.getenv("CLAUDE_SUMMARY_MODEL", "claude-haiku-4-5-20251001")
 MAX_TURNS = 20  # last N turns to include in summary prompt
+
+
+def _get_client():
+    if USE_VERTEX:
+        from anthropic import AnthropicVertex
+        return AnthropicVertex(project_id=PROJECT_ID, region=REGION)
+    from anthropic import Anthropic
+    return Anthropic()
 
 SYSTEM_PROMPT = (
     "You are a concise technical assistant. "
@@ -84,9 +93,7 @@ def summarise(transcript_path: str) -> str | None:
     prompt = f"Transcript:\n\n{transcript_text}\n\nSummarise this session in 2 sentences."
 
     try:
-        from anthropic import AnthropicVertex
-
-        client = AnthropicVertex(project_id=PROJECT_ID, region=REGION)
+        client = _get_client()
         message = client.messages.create(
             model=MODEL,
             max_tokens=256,

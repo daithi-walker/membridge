@@ -34,7 +34,7 @@ localhost:7843 (host Python — needs osascript)
 Fires on every `UserPromptSubmit`. Runs in background (`&`) so Claude is never blocked. Sends `session_id`, `cwd`, `git_branch`, `iterm_tab`, `pid` to the API. Max timeout 3 seconds; silently drops on failure.
 
 ### Stop hook (`hooks/claude_ui_stop.sh`)
-Fires when a Claude session ends. Sends `session_id` and `transcript_path`. The server triggers async summary generation (Vertex AI haiku) from the transcript.
+Fires when a Claude session ends. Sends `session_id` and `transcript_path`. The server triggers async summary generation (Claude haiku via Anthropic API) from the transcript.
 
 ### FastAPI server (`claude_ui/server.py`)
 Runs inside Docker. Handles all API routes. On first heartbeat for a session, calls the focus server's `/rename` endpoint via `host.docker.internal:7843` to rename the iTerm tab.
@@ -61,7 +61,7 @@ sessions (
   first_seen      TEXT,              -- ISO8601 UTC
   last_seen       TEXT,              -- ISO8601 UTC (updated on heartbeat)
   last_stop_reason TEXT,             -- From Stop hook
-  summary         TEXT,              -- Auto (Vertex AI) or user-edited
+  summary         TEXT,              -- Auto (Claude haiku) or user-edited
   summary_source  TEXT,              -- 'auto' | 'user' | 'backfill'
   prompt_count    INTEGER,           -- Incremented on each heartbeat
   notes           TEXT               -- Manual work log (side panel)
