@@ -42,13 +42,20 @@ function applyTheme(theme) {
   }
 }
 
+// Restore persisted filter state
+showStale = localStorage.getItem('mb-show-stale') === 'true';
+showStaleCheckbox.checked = showStale;
+projectFilter = localStorage.getItem('mb-project-filter') || '';
+
 showStaleCheckbox.addEventListener('change', () => {
   showStale = showStaleCheckbox.checked;
+  localStorage.setItem('mb-show-stale', showStale);
   render(sessions);
 });
 
 projectSelect.addEventListener('change', () => {
   projectFilter = projectSelect.value;
+  localStorage.setItem('mb-project-filter', projectFilter);
   render(sessions);
 });
 
