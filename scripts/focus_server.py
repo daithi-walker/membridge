@@ -72,6 +72,45 @@ end tell
 
 
 class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/sessions":
+            self._handle_list_sessions()
+        else:
+            self._respond(404, {"error": "not found"})
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "http://localhost:7842")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def _handle_list_sessions(self):
+        script = """
+tell application "iTerm2"
+  set output to {}
+  repeat with w in windows
+    set tabIndex to 1
+    repeat with t in tabs of w
+      repeat with s in sessions of t
+        set end of output to name of s
+      end repeat
+      set tabIndex to tabIndex + 1
+    end repeat
+  end repeat
+  return output
+end tell
+"""
+        try:
+            result = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True, text=True, timeout=5
+            )
+            names = [n.strip() for n in result.stdout.strip().split(",") if n.strip()]
+            self._respond(200, {"sessions": names, "count": len(names)})
+        except Exception as e:
+            self._respond(500, {"error": str(e)})
+
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length) or b"{}")
@@ -127,13 +166,6 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "http://localhost:7842")
         self.end_headers()
         self.wfile.write(data)
-
-    def do_OPTIONS(self):
-        self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "http://localhost:7842")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
 
     def log_message(self, fmt, *args):
         pass
