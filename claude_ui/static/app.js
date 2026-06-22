@@ -253,7 +253,7 @@ function openPanel(s, scrollIntoView) {
       const res = await fetch('http://localhost:7843/focus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null }),
+        body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null, cwd: s.cwd || null }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

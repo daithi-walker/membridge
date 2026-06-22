@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -115,12 +116,29 @@ def sessions() -> list[dict]:
     now = datetime.now(timezone.utc)
     settings = db.get_settings()
     for row in rows:
-        row["status"] = _compute_status(
+        status = _compute_status(
             row["last_seen"], now,
             settings["active_threshold_secs"],
             settings["idle_threshold_secs"],
         )
+        # If timestamp says stale but PID is still alive, floor to idle
+        if status == "stale" and row.get("pid"):
+            if _pid_alive(row["pid"]):
+                status = "idle"
+        row["status"] = status
     return rows
+
+
+def _pid_alive(pid: int) -> bool:
+    import urllib.request
+    try:
+        resp = urllib.request.urlopen(
+            f"http://host.docker.internal:7843/pid/{pid}", timeout=1
+        )
+        data = json.loads(resp.read())
+        return bool(data.get("alive"))
+    except Exception:
+        return False
 
 
 @app.patch("/api/sessions/{session_id}")

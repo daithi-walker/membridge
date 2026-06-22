@@ -15,9 +15,13 @@ Endpoints:
 
   GET  /sessions
                 Lists all iTerm2 session names (debug).
+
+  GET  /pid/<pid>
+                Returns {"alive": true/false} — whether the PID is still running on the host.
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -56,7 +60,7 @@ end tell
 _OPEN_TAB_SCRIPT = """
 tell application "iTerm2"
     tell current window
-        create tab with default profile command "{claude_bin} --resume {session_id}"
+        create tab with default profile command "bash -c 'cd {cwd} && {claude_bin} --resume {session_id}'"
     end tell
     return "opened"
 end tell
@@ -85,6 +89,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/sessions":
             self._handle_list_sessions()
+        elif self.path.startswith("/pid/"):
+            self._handle_pid_check(self.path[5:])
         else:
             self._respond(404, {"error": "not found"})
 
@@ -94,6 +100,19 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
+
+    def _handle_pid_check(self, pid_str: str):
+        try:
+            pid = int(pid_str)
+            os.kill(pid, 0)  # signal 0 = existence check, no actual signal
+            self._respond(200, {"alive": True})
+        except ValueError:
+            self._respond(400, {"error": "invalid pid"})
+        except ProcessLookupError:
+            self._respond(200, {"alive": False})
+        except PermissionError:
+            # Process exists but we can't signal it — still alive
+            self._respond(200, {"alive": True})
 
     def _handle_list_sessions(self):
         script = """
@@ -135,6 +154,7 @@ end tell
     def _handle_focus(self, body):
         session_id = body.get("session_id", "")
         pid = body.get("pid")
+        cwd = body.get("cwd") or os.path.expanduser("~")
         if not session_id:
             self._respond(400, {"error": "session_id required"})
             return
@@ -153,8 +173,9 @@ end tell
                     self._respond(200, {"ok": True, "action": "focused"})
                     return
 
-        # Strategy 2: open a new tab with claude --resume
+        # Strategy 2: open a new tab with claude --resume, cd to session's cwd first
         script = _OPEN_TAB_SCRIPT.format(
+            cwd=cwd.replace('"', '\\"'),
             claude_bin=_CLAUDE_BIN.replace('"', '\\"'),
             session_id=session_id.replace('"', '\\"'),
         )
