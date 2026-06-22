@@ -1,13 +1,14 @@
 """Auto-summary of Claude sessions via Vertex AI."""
 import json
 import logging
+import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ID = "simopt-dev"
-REGION = "global"
-MODEL = "claude-haiku-4-5-20251001"
+PROJECT_ID = os.getenv("VERTEX_PROJECT_ID", "")
+REGION = os.getenv("VERTEX_REGION", "global")
+MODEL = os.getenv("CLAUDE_SUMMARY_MODEL", "claude-haiku-4-5-20251001")
 MAX_TURNS = 20  # last N turns to include in summary prompt
 
 SYSTEM_PROMPT = (

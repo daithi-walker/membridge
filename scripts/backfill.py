@@ -33,7 +33,7 @@ CLAUDE_UI_DB = Path(os.getenv("CLAUDE_UI_DB", Path.home() / ".claude-ui" / "sess
 
 
 def decode_cwd(folder_name: str) -> str:
-    """Convert -Users-david-walker-git-sb-alembic → /Users/david.walker/git/sb/alembic"""
+    """Convert Claude's folder encoding back to a path, e.g. -Users-you-git-myproject → /Users/you/git/myproject"""
     return folder_name.replace("-", "/", 1).replace("-", "/")
 
 

@@ -14,14 +14,21 @@ CREATE TABLE IF NOT EXISTS sessions (
     project_name    TEXT NOT NULL,
     git_branch      TEXT,
     iterm_tab       TEXT,
+    pid             INTEGER,
     first_seen      TEXT NOT NULL,
     last_seen       TEXT NOT NULL,
     last_stop_reason TEXT,
     summary         TEXT,
     summary_source  TEXT DEFAULT 'auto',
-    prompt_count    INTEGER NOT NULL DEFAULT 0
+    prompt_count    INTEGER NOT NULL DEFAULT 0,
+    notes           TEXT
 );
 """
+
+_MIGRATIONS = [
+    "ALTER TABLE sessions ADD COLUMN pid INTEGER;",
+    "ALTER TABLE sessions ADD COLUMN notes TEXT;",
+]
 
 
 def _now() -> str:
@@ -32,6 +39,11 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _conn() as conn:
         conn.execute(_CREATE_SQL)
+        for sql in _MIGRATIONS:
+            try:
+                conn.execute(sql)
+            except Exception:
+                pass
 
 
 @contextmanager
@@ -50,7 +62,9 @@ def upsert_heartbeat(
     cwd: str,
     branch: str | None,
     iterm_tab: str | None,
-) -> None:
+    pid: int | None = None,
+) -> bool:
+    """Returns True if this is a new session, False if existing."""
     project_name = Path(cwd).name
     now = _now()
     with _conn() as conn:
@@ -63,18 +77,21 @@ def upsert_heartbeat(
                    SET last_seen = ?,
                        prompt_count = prompt_count + 1,
                        git_branch = COALESCE(?, git_branch),
-                       iterm_tab = COALESCE(?, iterm_tab)
+                       iterm_tab = COALESCE(?, iterm_tab),
+                       pid = COALESCE(?, pid)
                    WHERE session_id = ?""",
-                (now, branch or None, iterm_tab or None, session_id),
+                (now, branch or None, iterm_tab or None, pid, session_id),
             )
+            return False
         else:
             conn.execute(
                 """INSERT INTO sessions
-                   (session_id, cwd, project_name, git_branch, iterm_tab,
+                   (session_id, cwd, project_name, git_branch, iterm_tab, pid,
                     first_seen, last_seen, prompt_count)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
-                (session_id, cwd, project_name, branch or None, iterm_tab or None, now, now),
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+                (session_id, cwd, project_name, branch or None, iterm_tab or None, pid, now, now),
             )
+            return True
 
 
 def record_stop(session_id: str, stop_reason: str) -> None:
@@ -90,6 +107,14 @@ def update_summary(session_id: str, summary: str, source: str = "auto") -> None:
         conn.execute(
             "UPDATE sessions SET summary = ?, summary_source = ? WHERE session_id = ?",
             (summary, source, session_id),
+        )
+
+
+def update_notes(session_id: str, notes: str) -> None:
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE sessions SET notes = ? WHERE session_id = ?",
+            (notes, session_id),
         )
 
 

@@ -14,7 +14,7 @@ from .summariser import summarise
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Claude UI")
+app = FastAPI(title="MemBridge")
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
@@ -32,6 +32,7 @@ class HeartbeatPayload(BaseModel):
     cwd: str
     branch: str = ""
     iterm_tab: str = ""
+    pid: int | None = None
 
 
 class StopPayload(BaseModel):
@@ -42,6 +43,7 @@ class StopPayload(BaseModel):
 
 class SessionPatch(BaseModel):
     summary: str | None = None
+    notes: str | None = None
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -49,13 +51,35 @@ class SessionPatch(BaseModel):
 
 @app.post("/api/heartbeat")
 def heartbeat(payload: HeartbeatPayload) -> dict:
-    db.upsert_heartbeat(
+    is_new = db.upsert_heartbeat(
         session_id=payload.session_id,
         cwd=payload.cwd,
         branch=payload.branch or None,
         iterm_tab=payload.iterm_tab or None,
+        pid=payload.pid,
     )
+    # On first registration, ask the focus server to rename the iTerm tab
+    if is_new and payload.iterm_tab:
+        project = payload.cwd.split("/")[-1] if payload.cwd else "claude"
+        new_name = f"{project}" + (f" · {payload.branch}" if payload.branch else "")
+        _rename_iterm_tab(payload.iterm_tab, new_name)
     return {"ok": True}
+
+
+def _rename_iterm_tab(old_name: str, new_name: str) -> None:
+    import urllib.request
+    import json as _json
+    try:
+        body = _json.dumps({"old_name": old_name, "new_name": new_name}).encode()
+        req = urllib.request.Request(
+            "http://host.docker.internal:7843/rename",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=2)
+    except Exception as e:
+        logger.debug("Tab rename skipped: %s", e)
 
 
 @app.post("/api/stop")
@@ -98,6 +122,8 @@ def patch_session(session_id: str, patch: SessionPatch) -> dict:
         raise HTTPException(status_code=404, detail="Session not found")
     if patch.summary is not None:
         db.update_summary(session_id, patch.summary, source="user")
+    if patch.notes is not None:
+        db.update_notes(session_id, patch.notes)
     return {"ok": True}
 
 

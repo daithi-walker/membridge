@@ -1,8 +1,13 @@
 #!/bin/bash
-# claude-ui install script
+# MemBridge install script
 # - Builds the Docker image
 # - Registers Claude Code hooks in ~/.claude/settings.json
-# - Installs a launchd plist to start the container at login
+# - Installs a launchd plist for the focus server (port 7843)
+#
+# Prerequisites:
+#   - Docker / OrbStack installed and running
+#   - Python 3.11+ on PATH
+#   - .env file with VERTEX_PROJECT_ID set (copy .env.example)
 
 set -euo pipefail
 
@@ -10,11 +15,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 HOOKS_DIR="$PROJECT_DIR/hooks"
 SETTINGS_FILE="$HOME/.claude/settings.json"
-PLIST_LABEL="com.daihi.claude-ui"
+PLIST_LABEL="com.daihi.membridge"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
 DOCKER_BIN="$(command -v docker)"
 
-echo "==> claude-ui installer"
+echo "==> MemBridge installer"
 echo "    Project: $PROJECT_DIR"
 
 # ── 1. Build Docker image ─────────────────────────────────────────────────────
@@ -66,12 +71,15 @@ with open(settings_path, "w") as f:
     f.write("\n")
 PYEOF
 
-# ── 4. Install launchd plist ─────────────────────────────────────────────────
+PYTHON_BIN="$(command -v python3)"
+
+# ── 4. Install launchd plists ─────────────────────────────────────────────────
 echo ""
-echo "==> Installing launchd service..."
+echo "==> Installing launchd services..."
 
 mkdir -p "$HOME/Library/LaunchAgents"
 
+# 4a. Main app (Docker)
 cat > "$PLIST_PATH" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -108,15 +116,47 @@ PLIST
 
 launchctl unload "$PLIST_PATH" 2>/dev/null || true
 launchctl load "$PLIST_PATH"
-echo "    Service loaded: $PLIST_LABEL"
+echo "    Loaded: $PLIST_LABEL (port 7842)"
+
+# 4b. Focus server (host Python — needs osascript access to iTerm2)
+FOCUS_PLIST_LABEL="com.daihi.claude-ui-focus"
+FOCUS_PLIST_PATH="$HOME/Library/LaunchAgents/${FOCUS_PLIST_LABEL}.plist"
+
+cat > "$FOCUS_PLIST_PATH" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${FOCUS_PLIST_LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${PYTHON_BIN}</string>
+    <string>${PROJECT_DIR}/scripts/focus_server.py</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/claude-ui-focus.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/claude-ui-focus.log</string>
+</dict>
+</plist>
+PLIST
+
+launchctl unload "$FOCUS_PLIST_PATH" 2>/dev/null || true
+launchctl load "$FOCUS_PLIST_PATH"
+echo "    Loaded: $FOCUS_PLIST_LABEL (port 7843)"
 
 # ── 5. Done ───────────────────────────────────────────────────────────────────
 echo ""
 echo "==> All done!"
 echo ""
-echo "    Dashboard:  http://localhost:7842"
-echo "    Logs:       tail -f /tmp/claude-ui.log"
-echo "    DB:         ~/.claude-ui/sessions.db"
-echo "    Container:  docker compose -f $PROJECT_DIR/docker-compose.yml ps"
+echo "    Dashboard:   http://localhost:7842"
+echo "    App logs:    tail -f /tmp/claude-ui.log"
+echo "    Focus logs:  tail -f /tmp/claude-ui-focus.log"
+echo "    DB:          ~/.claude-ui/sessions.db"
 echo ""
 echo "    Hooks registered — restart Claude Code to pick them up."
