@@ -60,6 +60,7 @@ _MIGRATIONS = [
     "ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;",
     "ALTER TABLE sessions ADD COLUMN tickets TEXT;",
     "ALTER TABLE sessions ADD COLUMN starred INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE sessions ADD COLUMN awaiting_input INTEGER NOT NULL DEFAULT 0;",
 ]
 
 
@@ -134,6 +135,7 @@ def upsert_heartbeat(
                 """UPDATE sessions
                    SET last_seen = ?,
                        prompt_count = prompt_count + 1,
+                       awaiting_input = 0,
                        git_branch = COALESCE(?, git_branch),
                        iterm_tab = COALESCE(?, iterm_tab),
                        pid = COALESCE(?, pid),
@@ -157,7 +159,7 @@ def upsert_heartbeat(
 def record_stop(session_id: str, stop_reason: str) -> None:
     with _conn() as conn:
         conn.execute(
-            "UPDATE sessions SET last_stop_reason = ? WHERE session_id = ?",
+            "UPDATE sessions SET last_stop_reason = ?, awaiting_input = 1 WHERE session_id = ?",
             (stop_reason, session_id),
         )
 

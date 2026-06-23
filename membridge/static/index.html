@@ -278,6 +278,15 @@
       border-color: #E4A636; color: #E4A636;
     }
     .btn-focus-row-resume:hover { background: rgba(228,166,54,0.12); }
+    .btn-focus-row-awaiting {
+      border-color: #4eaaff; color: #4eaaff;
+      animation: pulse-awaiting 2s ease-in-out infinite;
+    }
+    .btn-focus-row-awaiting:hover { background: rgba(78,170,255,0.12); }
+    @keyframes pulse-awaiting {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
 
     #sessions-table { table-layout: fixed; }
     th { position: relative; }
@@ -749,6 +758,14 @@
     <div>
       <h1>MemBridge</h1>
       <div class="subtitle">Claude session tracker &amp; resume helper</div>
+    </div>
+    <div id="awaiting-badge" style="display:none;position:relative;margin-left:auto">
+      <span id="awaiting-count" style="
+        background:#4eaaff;color:#000;border-radius:99px;
+        font-size:11px;font-weight:700;padding:2px 7px;
+        animation:pulse-awaiting 2s ease-in-out infinite;
+        cursor:default;
+      " title="Sessions awaiting your input"></span>
     </div>
     <button id="theme-toggle" title="Toggle theme">☀</button>
     <button id="settings-btn" title="Settings">⚙</button>

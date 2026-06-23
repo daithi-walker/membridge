@@ -283,6 +283,16 @@ function render(all) {
   const idle = all.filter(s => s.status === 'idle').length;
   summaryCount.textContent = `${active} active · ${idle} idle · ${all.length} total`;
 
+  const awaitingN = all.filter(s => s.awaiting_input && s.status !== 'stale').length;
+  const awaitingBadge = document.getElementById('awaiting-badge');
+  const awaitingCount = document.getElementById('awaiting-count');
+  if (awaitingN > 0) {
+    awaitingCount.textContent = `◉ ${awaitingN} awaiting`;
+    awaitingBadge.style.display = 'block';
+  } else {
+    awaitingBadge.style.display = 'none';
+  }
+
   if (visible.length === 0) {
     table.style.display = 'none';
     emptyState.style.display = 'block';
@@ -333,9 +343,11 @@ function buildRow(s) {
 
   // Focus button
   const focusRowBtn = document.createElement('button');
-  focusRowBtn.className = 'btn-focus-row' + (s.status === 'stale' ? ' btn-focus-row-resume' : '');
-  focusRowBtn.title = s.status === 'stale' ? 'Resume session' : 'Focus tab';
-  focusRowBtn.textContent = s.status === 'stale' ? '↩' : '⌘';
+  const _isResume = s.status === 'stale';
+  const _isAwaiting = s.awaiting_input && !_isResume;
+  focusRowBtn.className = 'btn-focus-row' + (_isResume ? ' btn-focus-row-resume' : '') + (_isAwaiting ? ' btn-focus-row-awaiting' : '');
+  focusRowBtn.title = _isResume ? 'Resume session' : (_isAwaiting ? 'Awaiting your input' : 'Focus tab');
+  focusRowBtn.textContent = _isResume ? '↩' : (_isAwaiting ? '◉' : '⌘');
   focusRowBtn.addEventListener('click', async e => {
     e.stopPropagation();
     focusRowBtn.textContent = '…';
