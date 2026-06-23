@@ -65,6 +65,32 @@ curl http://localhost:7842/api/sessions | python3 -c "import sys,json; s=json.lo
 
 ---
 
+## 2026-06-23 — Notification hook + awaiting_input state machine
+
+**No breaking changes — but `scripts/install.sh` must be re-run to register the new hook.**
+
+### What changed
+
+- `Notification` hook (`permission_prompt` matcher) — sets `awaiting_input` immediately when Claude asks mid-turn permission, not just on Stop
+- `awaiting_input` DB column — drives 4-state focus button (green ◉ awaiting / orange ◉ working / amber ↩ resume / grey ⌘ idle)
+- SSE push-refresh — dashboard updates instantly on heartbeat/stop; no more 30s lag for state changes
+- `POST /api/sessions/{id}/push-summary` — `/membridge-summarize` now pushes text direct to DB
+- Notification prefs in Settings modal — Pop-ups + Sound toggles (sound off by default)
+- Header badge "◉ N awaiting input" — clickable, jumps to first awaiting row
+
+### Migration steps
+
+```bash
+git pull
+bash scripts/install.sh
+```
+
+`install.sh` will register the new `Notification` hook in `~/.claude/settings.json`. Restart Claude Code after running it to pick up the hook.
+
+The `awaiting_input` DB column is added automatically on server start (idempotent migration).
+
+---
+
 ## Earlier
 
 No formal release notes — see `CHANGELOG.md` for full history.
