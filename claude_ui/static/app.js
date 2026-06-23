@@ -232,8 +232,9 @@ function buildRow(s) {
   tr.appendChild(countTd);
 
   const descTd = td('col-desc');
-  descTd.style.cssText = 'font-size:12px;color:var(--text-muted);overflow:hidden;max-height:2.8em';
-  descTd.textContent = s.description ? stripMd(s.description).slice(0, 140) + (stripMd(s.description).length > 140 ? '…' : '') : '';
+  descTd.style.cssText = 'font-size:12px;color:var(--text-muted)';
+  const _desc = s.description ? stripMd(s.description) : '';
+  descTd.textContent = _desc.slice(0, 100) + (_desc.length > 100 ? '…' : '');
   tr.appendChild(descTd);
 
   const chevTd = td('col-chevron');
