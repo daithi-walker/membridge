@@ -45,6 +45,7 @@ _CLAUDE_BIN = (
 
 _FOCUS_BY_TTY_SCRIPT = """
 tell application "iTerm2"
+    activate
     set targetTty to "{tty}"
     repeat with w in windows
         repeat with t in tabs of w
@@ -67,6 +68,7 @@ end tell
 
 _OPEN_TAB_SCRIPT = """
 tell application "iTerm2"
+    activate
     tell current window
         create tab with default profile command "bash -c 'cd {cwd} && {claude_bin} --resume {session_id}'"
     end tell
