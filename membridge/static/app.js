@@ -287,7 +287,7 @@ function render(all) {
   const awaitingBadge = document.getElementById('awaiting-badge');
   const awaitingCount = document.getElementById('awaiting-count');
   if (awaitingN > 0) {
-    awaitingCount.textContent = `◉ ${awaitingN} awaiting`;
+    awaitingCount.textContent = `◉ ${awaitingN} awaiting input`;
     awaitingBadge.style.display = 'block';
   } else {
     awaitingBadge.style.display = 'none';
@@ -858,6 +858,17 @@ function initColResize() {
 }
 
 // ── SSE — push-refresh from server ───────────────────────────────────────────
+
+document.getElementById('awaiting-badge').addEventListener('click', () => {
+  const rows = [...document.querySelectorAll('#sessions-body tr')];
+  // Find first row whose focus button has the awaiting class
+  const target = rows.find(r => r.querySelector('.btn-focus-row-awaiting'));
+  if (target) {
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    target.classList.add('row-flash');
+    setTimeout(() => target.classList.remove('row-flash'), 1200);
+  }
+});
 
 function connectSSE() {
   const es = new EventSource('/api/events');
