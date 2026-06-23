@@ -70,7 +70,12 @@ _OPEN_TAB_SCRIPT = """
 tell application "iTerm2"
     activate
     tell current window
-        create tab with default profile command "bash -c 'cd {cwd} && {claude_bin} --resume {session_id}'"
+        set newTab to (create tab with default profile command "bash -c 'cd {cwd} && {claude_bin} --resume {session_id}'")
+        tell newTab
+            repeat with s in sessions
+                set name of s to "{tab_name}"
+            end repeat
+        end tell
     end tell
     return "opened"
 end tell
@@ -186,10 +191,12 @@ end tell
                     return
 
         # Strategy 2: open a new tab with claude --resume, cd to session's cwd first
+        tab_name = body.get("tab_name") or session_id[:8]
         script = _OPEN_TAB_SCRIPT.format(
             cwd=cwd.replace('"', '\\"'),
             claude_bin=_CLAUDE_BIN.replace('"', '\\"'),
             session_id=session_id.replace('"', '\\"'),
+            tab_name=tab_name.replace('"', '\\"'),
         )
         self._run_osascript(script, default_action="opened")
 

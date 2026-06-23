@@ -376,24 +376,25 @@ function openPanel(s, scrollIntoView) {
   renderMarkdown(document.getElementById('panel-summary'), s.description || '');
 
   const focusBtn = document.getElementById('panel-focus-btn');
-  focusBtn.textContent = s.pid ? '⌘ Focus' : '⌘ Open';
+  const focusLabel = () => s.status === 'stale' ? '↩ Resume' : '⌘ Focus';
+  focusBtn.textContent = focusLabel();
   focusBtn.onclick = async () => {
     focusBtn.textContent = '…';
     try {
       const res = await fetch('http://localhost:7843/focus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null, cwd: s.cwd || null }),
+        body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null, cwd: s.cwd || null, tab_name: s.iterm_tab || null }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      focusBtn.textContent = data.action === 'focused' ? '✓ Focused' : '✓ Opened';
+      focusBtn.textContent = data.action === 'focused' ? '✓ Focused' : '✓ Resumed';
     } catch (err) {
       focusBtn.textContent = '✗ Failed';
       console.error('Focus error:', err);
     }
-    setTimeout(() => { focusBtn.textContent = s.pid ? '⌘ Focus' : '⌘ Open'; }, 2500);
+    setTimeout(() => { focusBtn.textContent = focusLabel(); }, 2500);
   };
 
   const resumeBtn = document.getElementById('panel-resume-btn');
