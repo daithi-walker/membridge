@@ -534,6 +534,20 @@
     }
     #settings-save:hover { background: #4a3a10; }
 
+    .btn-summarise {
+      border-color: var(--border);
+      color: var(--text-muted);
+      background: transparent;
+    }
+    .btn-summarise:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-delete {
+      border-color: var(--border);
+      color: #f87171;
+      background: transparent;
+    }
+    .btn-delete:hover { border-color: #f87171; background: rgba(239,68,68,0.1); }
+
     #settings-btn {
       background: transparent;
       border: 1px solid var(--border);
@@ -639,6 +653,10 @@
         <div class="panel-actions">
           <button class="btn-focus" id="panel-focus-btn">⌘ Focus</button>
           <button class="btn-resume" id="panel-resume-btn">Copy resume</button>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-summarise" id="panel-summarise-btn">↻ Summarise</button>
+          <button class="btn-delete" id="panel-delete-btn">✕ Delete</button>
         </div>
 
         <div>

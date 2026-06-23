@@ -140,6 +140,19 @@ def update_summary(session_id: str, summary: str, source: str = "auto") -> None:
         )
 
 
+def touch_session(session_id: str) -> None:
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE sessions SET last_seen = ? WHERE session_id = ?",
+            (_now(), session_id),
+        )
+
+
+def delete_session(session_id: str) -> None:
+    with _conn() as conn:
+        conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+
+
 def update_notes(session_id: str, notes: str) -> None:
     with _conn() as conn:
         conn.execute(

@@ -37,6 +37,10 @@ class HeartbeatPayload(BaseModel):
     iterm_session_uuid: str | None = None
 
 
+class TouchPayload(BaseModel):
+    session_id: str
+
+
 class StopPayload(BaseModel):
     session_id: str
     stop_reason: str = ""
@@ -90,12 +94,26 @@ def _rename_iterm_tab(old_name: str, new_name: str) -> None:
         logger.debug("Tab rename skipped: %s", e)
 
 
+@app.post("/api/touch")
+def touch(payload: TouchPayload) -> dict:
+    db.touch_session(payload.session_id)
+    return {"ok": True}
+
+
 @app.post("/api/stop")
 async def stop(payload: StopPayload) -> dict:
     db.record_stop(payload.session_id, payload.stop_reason)
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
     return {"ok": True}
+
+
+def _find_transcript(session_id: str) -> str | None:
+    import os
+    projects_root = os.getenv("CLAUDE_PROJECTS_ROOT", str(Path.home() / ".claude" / "projects"))
+    for path in Path(projects_root).rglob(f"{session_id}.jsonl"):
+        return str(path)
+    return None
 
 
 async def _generate_summary(session_id: str, transcript_path: str) -> None:
@@ -152,6 +170,27 @@ def patch_session(session_id: str, patch: SessionPatch) -> dict:
         db.update_summary(session_id, patch.summary, source="user")
     if patch.notes is not None:
         db.update_notes(session_id, patch.notes)
+    return {"ok": True}
+
+
+@app.post("/api/sessions/{session_id}/summarise")
+async def trigger_summarise(session_id: str) -> dict:
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    transcript_path = _find_transcript(session_id)
+    if not transcript_path:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    asyncio.create_task(_generate_summary(session_id, transcript_path))
+    return {"ok": True, "status": "queued"}
+
+
+@app.delete("/api/sessions/{session_id}")
+def delete_session(session_id: str) -> dict:
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    db.delete_session(session_id)
     return {"ok": True}
 
 

@@ -9,6 +9,7 @@ services:
     volumes:
       - "${HOME}/.claude-ui:/data"
       - "${HOME}/.claude/projects:${HOME}/.claude/projects:ro"
+      - "${HOME}/.config/gcloud:/root/.config/gcloud:ro"
     environment:
       CLAUDE_UI_DB: /data/sessions.db
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

@@ -305,6 +305,38 @@ function openPanel(s, scrollIntoView) {
     });
   };
 
+  const summariseBtn = document.getElementById('panel-summarise-btn');
+  summariseBtn.textContent = '↻ Summarise';
+  summariseBtn.onclick = async () => {
+    summariseBtn.textContent = '…';
+    summariseBtn.disabled = true;
+    try {
+      const res = await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}/summarise`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json();
+        summariseBtn.textContent = err.detail === 'Transcript not found' ? '✗ No transcript' : '✗ Failed';
+      } else {
+        summariseBtn.textContent = '✓ Queued';
+        // Poll once after 8s to pick up the new summary
+        setTimeout(fetchSessions, 8000);
+      }
+    } catch (_) {
+      summariseBtn.textContent = '✗ Error';
+    }
+    setTimeout(() => { summariseBtn.textContent = '↻ Summarise'; summariseBtn.disabled = false; }, 3000);
+  };
+
+  const deleteBtn = document.getElementById('panel-delete-btn');
+  deleteBtn.textContent = '✕ Delete';
+  deleteBtn.onclick = async () => {
+    if (!confirm(`Delete session ${s.session_id.slice(0, 8)}…? This cannot be undone.`)) return;
+    try {
+      await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, { method: 'DELETE' });
+      closePanel();
+      fetchSessions();
+    } catch (_) {}
+  };
+
   const notesArea = document.getElementById('panel-notes');
   notesArea.value = s.notes || '';
   notesArea._session = s;
