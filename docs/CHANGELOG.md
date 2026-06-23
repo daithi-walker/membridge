@@ -6,6 +6,12 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Focus button resumes dead sessions: UUID match → PID/TTY → open new tab with `claude --resume` in correct cwd
+- Tab name set immediately on resume (osascript names tab before writing command)
+- Tab rename on first heartbeat after `claude --resume` (UUID change detection in upsert)
+- Bulk-fixed 106 sessions with bad `/Users/david/walker/` paths (other machine backfill); `Path.resolve()` guard added to upsert
+- Show ▾ filter dropdown (active/idle/stale/archived) replaces stale + archived checkboxes
+
 - Auto-summary dedup by `transcript_path:file_size` — Stop hook fires every turn, not just session close; dedup prevents duplicate history entries
 - ADRs 001–008 documenting all major architectural decisions
 - `/membridge-recall` slash command — list recent sessions or dump summaries by session ID prefix

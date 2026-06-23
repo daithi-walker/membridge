@@ -80,4 +80,6 @@ Run `sync_iterm_tabs.py` on a schedule (5 min via launchd) so tab names stay cur
 
 ---
 
+---
+
 See `docs/CHANGELOG.md` for completed work.
