@@ -257,7 +257,28 @@
     .col-last    { width: 100px; white-space: nowrap; }
     .col-prompts { width: 64px; text-align: right; }
     .col-desc    { width: 240px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .col-chevron { width: 28px; color: var(--text-muted); text-align: right; padding-right: 12px; }
+    .col-focus   { width: 60px; padding: 6px 4px; text-align: center; white-space: nowrap; }
+
+    .btn-star {
+      background: none; border: none; cursor: pointer;
+      font-size: 14px; color: var(--text-muted); padding: 2px 3px;
+      opacity: 0.35; transition: opacity 0.15s, color 0.15s;
+    }
+    .btn-star:hover { opacity: 1; color: #E4A636; }
+    .btn-star-on { opacity: 1; color: #E4A636; }
+    .col-chevron { width: 28px; text-align: right; padding-right: 8px; color: var(--text-muted); }
+
+    .btn-focus-row {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text-muted); font-size: 13px; cursor: pointer;
+      padding: 2px 6px; line-height: 1.4;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .btn-focus-row:hover { background: var(--hover); color: var(--text); border-color: var(--text-muted); }
+    .btn-focus-row-resume {
+      border-color: #E4A636; color: #E4A636;
+    }
+    .btn-focus-row-resume:hover { background: rgba(228,166,54,0.12); }
 
     #sessions-table { table-layout: fixed; }
     th { position: relative; }
@@ -778,6 +799,7 @@
           <button id="show-select-none">None</button>
         </div>
         <div id="show-checkboxes">
+          <label class="proj-check-label"><input type="checkbox" value="starred"> ★ Starred</label>
           <label class="proj-check-label"><input type="checkbox" value="active"> Active</label>
           <label class="proj-check-label"><input type="checkbox" value="idle"> Idle</label>
           <label class="proj-check-label"><input type="checkbox" value="stale"> Stale</label>
@@ -804,6 +826,7 @@
         <thead>
           <tr>
             <th class="col-status">Status<span class="col-resize-handle" data-col="col-status"></span></th>
+            <th class="col-focus"></th>
             <th class="col-project">Project<span class="col-resize-handle" data-col="col-project"></span></th>
             <th class="col-iterm">Activity<span class="col-resize-handle" data-col="col-iterm"></span></th>
             <th class="col-branch">Branch<span class="col-resize-handle" data-col="col-branch"></span></th>

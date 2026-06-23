@@ -53,6 +53,7 @@ class SessionPatch(BaseModel):
     description: str | None = None
     notes: str | None = None
     archived: bool | None = None
+    starred: bool | None = None
     tickets: str | None = None
 
 
@@ -278,6 +279,8 @@ def patch_session(session_id: str, patch: SessionPatch) -> dict:
         db.update_notes(session_id, patch.notes)
     if patch.archived is not None:
         db.set_archived(session_id, patch.archived)
+    if patch.starred is not None:
+        db.set_starred(session_id, patch.starred)
     if patch.tickets is not None:
         db.update_tickets(session_id, patch.tickets)
     return {"ok": True}

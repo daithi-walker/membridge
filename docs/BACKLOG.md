@@ -19,7 +19,19 @@ Migration path:
 
 Unblocks: static file live-reload, credential cleanup, simpler install.
 
-### 2. Column resize lag
+### 2. Session feedback / reply from dashboard
+
+Allow sending a follow-up prompt to a waiting Claude session directly from the MemBridge dashboard.
+
+Design:
+- `Stop` hook sets a new `awaiting_input` flag on the session (or we derive it from `last_stop_reason`)
+- `/api/stop` fires a macOS notification via osascript: `display notification "project is waiting" with title "MemBridge"`
+- Dashboard shows a reply textarea for sessions in `awaiting_input` state
+- Send button calls `focus.py` `write text "your message\n"` to the session's iTerm2 UUID
+- Guard: check session is still `awaiting_input` before writing — avoid injecting into an active response
+- Inline focus button in table row turns amber when `awaiting_input`
+
+### 3. Column resize lag
 
 Resizable columns work (no jump) but the column lags behind the cursor during drag. Cause likely: `table-layout: fixed` column width negotiation between header and body cells even when only setting `th` width. Possible fix: use a `<col>` element per column and set width on that instead of on `th`/`td` directly — `colgroup`/`col` is the correct CSS hook for fixed table column widths.
 

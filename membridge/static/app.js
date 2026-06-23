@@ -267,6 +267,7 @@ function updateProjectFilter(all) {
 
 function render(all) {
   let visible = all.filter(s => {
+    if (s.starred && showFilter.has('starred')) return true;
     if (s.archived) return showFilter.has('archived');
     return showFilter.has(s.status);
   });
@@ -275,6 +276,8 @@ function render(all) {
   } else if (projectFilter.size > 0) {
     visible = visible.filter(s => projectFilter.has(s.project_name));
   }
+  // Starred sessions float to the top
+  visible.sort((a, b) => (b.starred || 0) - (a.starred || 0));
 
   const active = all.filter(s => s.status === 'active').length;
   const idle = all.filter(s => s.status === 'idle').length;
@@ -311,6 +314,62 @@ function buildRow(s) {
   badge.textContent = s.status;
   statusTd.appendChild(badge);
   tr.appendChild(statusTd);
+
+  const focusTd = td('col-focus');
+
+  // Star button
+  const starBtn = document.createElement('button');
+  starBtn.className = 'btn-star' + (s.starred ? ' btn-star-on' : '');
+  starBtn.title = s.starred ? 'Unstar session' : 'Star session';
+  starBtn.textContent = '★';
+  starBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    const newVal = !s.starred;
+    s.starred = newVal;
+    starBtn.className = 'btn-star' + (newVal ? ' btn-star-on' : '');
+    starBtn.title = newVal ? 'Unstar session' : 'Star session';
+    await fetch(`/api/sessions/${s.session_id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ starred: newVal }),
+    });
+    render(sessions);
+  });
+  focusTd.appendChild(starBtn);
+
+  // Focus button
+  const focusRowBtn = document.createElement('button');
+  focusRowBtn.className = 'btn-focus-row' + (s.status === 'stale' ? ' btn-focus-row-resume' : '');
+  focusRowBtn.title = s.status === 'stale' ? 'Resume session' : 'Focus tab';
+  focusRowBtn.textContent = s.status === 'stale' ? '↩' : '⌘';
+  focusRowBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    focusRowBtn.textContent = '…';
+    focusRowBtn.disabled = true;
+    try {
+      const res = await fetch('http://localhost:7842/focus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: s.session_id,
+          pid: s.pid,
+          cwd: s.cwd,
+          iterm_session_uuid: s.iterm_session_uuid,
+          tab_name: s.iterm_tab || s.project_name,
+        }),
+      });
+      const data = await res.json();
+      focusRowBtn.textContent = data.action === 'focused' ? '✓' : '↗';
+    } catch {
+      focusRowBtn.textContent = '✗';
+    }
+    setTimeout(() => {
+      focusRowBtn.textContent = s.status === 'stale' ? '↩' : '⌘';
+      focusRowBtn.disabled = false;
+    }, 2000);
+  });
+  focusTd.appendChild(focusRowBtn);
+  tr.appendChild(focusTd);
 
   const projTd = td('col-project');
   projTd.innerHTML = `<div class="project-name">${esc(s.project_name)}</div><div class="session-id">${esc(s.session_id.slice(0, 8))}…</div>`;
