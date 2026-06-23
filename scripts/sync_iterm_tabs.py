@@ -124,6 +124,17 @@ def main() -> None:
                 iterm_s = by_tty.get(tty)
 
         if not iterm_s:
+            # If we have a stored UUID but it's not in any live iTerm2 session,
+            # the tab was split or the window was reorganised — null the UUID so
+            # the next heartbeat can re-anchor to the new session.
+            if row["iterm_session_uuid"] and row["iterm_session_uuid"] not in by_uuid:
+                print(f"  {row['project_name']} (pid={row['pid']}): stale UUID {row['iterm_session_uuid'][:8]}… → cleared")
+                if not args.dry_run:
+                    conn.execute(
+                        "UPDATE sessions SET iterm_session_uuid = NULL WHERE session_id = ?",
+                        (row["session_id"],),
+                    )
+                    updated += 1
             continue
 
         # Prefer user alias (titleOverride), fall back to auto name
