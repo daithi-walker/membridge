@@ -80,11 +80,6 @@ def heartbeat(payload: HeartbeatPayload) -> dict:
         project = payload.cwd.split("/")[-1] if payload.cwd else "claude"
         new_name = f"{project}" + (f" · {payload.branch}" if payload.branch else "")
         _rename_iterm_tab(payload.iterm_tab, new_name)
-    elif result.uuid_changed and payload.iterm_tab and result.stored_tab_name:
-        # Resumed session in a new tab — restore the canonical tab name
-        _rename_iterm_tab(payload.iterm_tab, result.stored_tab_name)
-        logger.info("Restored tab name '%s' for resumed session %s",
-                    result.stored_tab_name, payload.session_id)
     return {"ok": True}
 
 
@@ -183,8 +178,11 @@ async def _generate_summary(session_id: str, transcript_path: str) -> None:
         loop = asyncio.get_event_loop()
         summary = await loop.run_in_executor(None, summarise, transcript_path)
         if summary:
-            db.add_summary(session_id, summary, source="auto", file_path=dedup_key)
-            logger.info("Summary added for session %s (%d bytes)", session_id, size)
+            if summary == db.last_auto_summary_text(session_id):
+                logger.info("Auto-summary text unchanged for session %s, skipping insert", session_id)
+            else:
+                db.add_summary(session_id, summary, source="auto", file_path=dedup_key)
+                logger.info("Auto-summary added for session %s (%d bytes)", session_id, size)
     except Exception as e:
         logger.warning("Summary task failed for %s: %s", session_id, e)
 

@@ -208,6 +208,18 @@ def summary_file_already_ingested(file_path: str) -> bool:
     return row is not None
 
 
+def last_auto_summary_text(session_id: str) -> str | None:
+    """Return the text of the most recent auto-source summary for this session, or None."""
+    with _conn() as conn:
+        row = conn.execute(
+            """SELECT text FROM session_summaries
+               WHERE session_id = ? AND source = 'auto'
+               ORDER BY created_at DESC LIMIT 1""",
+            (session_id,),
+        ).fetchone()
+    return row[0] if row else None
+
+
 def update_description(session_id: str, description: str) -> None:
     """Legacy: update sessions.description only (no history row). Kept for backfill compat."""
     with _conn() as conn:
