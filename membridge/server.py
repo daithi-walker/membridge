@@ -5,8 +5,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -17,6 +17,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="MemBridge")
+
+# SSE broadcast — set of queues, one per connected dashboard tab
+_sse_clients: set[asyncio.Queue] = set()
+
+
+def _broadcast(event: str) -> None:
+    """Push an event name to all connected SSE clients."""
+    dead = set()
+    for q in _sse_clients:
+        try:
+            q.put_nowait(event)
+        except asyncio.QueueFull:
+            dead.add(q)
+    _sse_clients.difference_update(dead)
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
@@ -79,6 +93,31 @@ class RenamePayload(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
+@app.get("/api/events")
+async def sse_events(request: Request) -> StreamingResponse:
+    queue: asyncio.Queue = asyncio.Queue(maxsize=20)
+    _sse_clients.add(queue)
+
+    async def generate():
+        try:
+            yield "data: connected\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=25)
+                    yield f"data: {event}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            _sse_clients.discard(queue)
+
+    return StreamingResponse(generate(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    })
+
+
 @app.post("/api/heartbeat")
 def heartbeat(payload: HeartbeatPayload) -> dict:
     result = db.upsert_heartbeat(
@@ -94,6 +133,7 @@ def heartbeat(payload: HeartbeatPayload) -> dict:
         project = payload.cwd.split("/")[-1] if payload.cwd else "claude"
         new_name = f"{project}" + (f" · {payload.branch}" if payload.branch else "")
         _rename_iterm_tab(payload.iterm_tab, new_name)
+    _broadcast("refresh")
     return {"ok": True}
 
 
@@ -116,6 +156,7 @@ async def stop(payload: StopPayload) -> dict:
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
     _notify_stop(payload.session_id, was_awaiting)
+    _broadcast("refresh")
     return {"ok": True}
 
 

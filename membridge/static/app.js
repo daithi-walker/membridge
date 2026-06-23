@@ -857,6 +857,20 @@ function initColResize() {
   });
 }
 
+// ── SSE — push-refresh from server ───────────────────────────────────────────
+
+function connectSSE() {
+  const es = new EventSource('/api/events');
+  es.onmessage = (e) => {
+    if (e.data === 'refresh') fetchSessions();
+  };
+  es.onerror = () => {
+    es.close();
+    // Reconnect after 5s if connection drops
+    setTimeout(connectSSE, 5000);
+  };
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -868,4 +882,5 @@ function initColResize() {
   initColResize();
   fetchSessions();
   restartRefreshTimer();
+  connectSSE();
 })();
