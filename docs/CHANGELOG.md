@@ -6,6 +6,8 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Star/focus buttons moved into Status column (no dedicated column, no wasted space)
+- Star sessions to pin them to the top; Show ▾ has Starred filter option
 - **Drop Docker** — membridge runs natively via launchd; single plist on port 7842; osascript/focus calls direct (no port 7843 hop); static file changes live on browser refresh; `scripts/install.sh` rewrites to uv venv
 - `membridge/focus.py` — osascript logic extracted; `/focus` `/rename` `/pid/<pid>` `/sync-tabs` routes merged into main server
 - Resizable table columns — drag handles on all headers, widths persisted to localStorage

@@ -309,13 +309,7 @@ function buildRow(s) {
   if (s.archived) tr.classList.add('row-archived');
 
   const statusTd = td('col-status');
-  const badge = document.createElement('span');
-  badge.className = `pill badge-${s.status}`;
-  badge.textContent = s.status;
-  statusTd.appendChild(badge);
-  tr.appendChild(statusTd);
-
-  const focusTd = td('col-focus');
+  statusTd.style.whiteSpace = 'nowrap';
 
   // Star button
   const starBtn = document.createElement('button');
@@ -335,7 +329,7 @@ function buildRow(s) {
     });
     render(sessions);
   });
-  focusTd.appendChild(starBtn);
+  statusTd.appendChild(starBtn);
 
   // Focus button
   const focusRowBtn = document.createElement('button');
@@ -368,8 +362,15 @@ function buildRow(s) {
       focusRowBtn.disabled = false;
     }, 2000);
   });
-  focusTd.appendChild(focusRowBtn);
-  tr.appendChild(focusTd);
+  statusTd.appendChild(focusRowBtn);
+
+  // Status pill
+  const badge = document.createElement('span');
+  badge.className = `pill badge-${s.status}`;
+  badge.textContent = s.status;
+  statusTd.appendChild(badge);
+
+  tr.appendChild(statusTd);
 
   const projTd = td('col-project');
   projTd.innerHTML = `<div class="project-name">${esc(s.project_name)}</div><div class="session-id">${esc(s.session_id.slice(0, 8))}…</div>`;
