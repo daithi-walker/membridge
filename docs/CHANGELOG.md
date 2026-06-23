@@ -6,6 +6,17 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Notification prefs in Settings modal — Pop-ups and Sound toggles (sound off by default); prefs synced to DB
+- `Notification` hook (matcher: `permission_prompt`) — sets `awaiting_input` immediately when Claude asks permission mid-turn
+- SSE push-refresh (`/api/events`) — dashboard updates instantly on heartbeat/stop; eliminates 30s poll lag
+- `awaiting_input` DB flag — set on Stop/Notification hook, cleared on heartbeat; drives green ◉ state
+- 4-state focus button: green ◉ awaiting / orange ◉ working / amber ↩ resume / grey ⌘ idle (ADR 010)
+- macOS notification on Stop — fires only on 0→1 awaiting transition; suppressed if session tab is frontmost
+- Header badge "◉ N awaiting input" — pulsing green, clickable (scrolls + flashes first awaiting row)
+- Legend under toolbar explains all 4 focus button states
+- `POST /api/sessions/{id}/push-summary` — slash command pushes text direct to DB; no file, no 30s poll lag
+- `/membridge-summarize` uses tmpfile pipeline to preserve real newlines in markdown
+- `RELEASES.md` — migration notes for breaking changes; `CLAUDE.md` rewritten for native process
 - Star/focus buttons moved into Status column (no dedicated column, no wasted space)
 - Star sessions to pin them to the top; Show ▾ has Starred filter option
 - **Drop Docker** — membridge runs natively via launchd; single plist on port 7842; osascript/focus calls direct (no port 7843 hop); static file changes live on browser refresh; `scripts/install.sh` rewrites to uv venv

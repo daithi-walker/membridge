@@ -70,29 +70,34 @@ echo "==> Registering hooks in $SETTINGS_FILE..."
 HEARTBEAT_HOOK="$HOOKS_DIR/claude_ui_heartbeat.sh"
 TOOL_USE_HOOK="$HOOKS_DIR/claude_ui_tool_use.sh"
 STOP_HOOK="$HOOKS_DIR/claude_ui_stop.sh"
+NOTIFICATION_HOOK="$HOOKS_DIR/claude_ui_notification.sh"
 
 [ -f "$SETTINGS_FILE" ] || echo '{}' > "$SETTINGS_FILE"
 
-python3 - "$SETTINGS_FILE" "$HEARTBEAT_HOOK" "$TOOL_USE_HOOK" "$STOP_HOOK" << 'PYEOF'
+python3 - "$SETTINGS_FILE" "$HEARTBEAT_HOOK" "$TOOL_USE_HOOK" "$STOP_HOOK" "$NOTIFICATION_HOOK" << 'PYEOF'
 import json, sys
-settings_path, heartbeat_hook, tool_use_hook, stop_hook = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+settings_path, heartbeat_hook, tool_use_hook, stop_hook, notification_hook = sys.argv[1:]
 with open(settings_path) as f:
     settings = json.load(f)
 hooks = settings.setdefault("hooks", {})
-def register(event, command):
+def register(event, command, matcher=None):
     event_hooks = hooks.setdefault(event, [])
     already = any(
         any(h.get("command") == command for h in e.get("hooks", []))
         for e in event_hooks
     )
     if not already:
-        event_hooks.append({"hooks": [{"type": "command", "command": command}]})
+        entry = {"hooks": [{"type": "command", "command": command}]}
+        if matcher:
+            entry["matcher"] = matcher
+        event_hooks.append(entry)
         print(f"  Added {event} hook: {command}")
     else:
         print(f"  {event} hook already registered")
 register("UserPromptSubmit", heartbeat_hook)
 register("PreToolUse", tool_use_hook)
 register("Stop", stop_hook)
+register("Notification", notification_hook, matcher="permission_prompt")
 with open(settings_path, "w") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
