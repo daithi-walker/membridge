@@ -52,7 +52,10 @@ showStale = localStorage.getItem('mb-show-stale') === 'true';
 showStaleCheckbox.checked = showStale;
 showArchived = localStorage.getItem('mb-show-archived') === 'true';
 showArchivedCheckbox.checked = showArchived;
-try { projectFilter = new Set(JSON.parse(localStorage.getItem('mb-project-filter') || '[]')); } catch (_) {}
+try {
+  const stored = JSON.parse(localStorage.getItem('mb-project-filter') || '[]');
+  projectFilter = new Set(stored);
+} catch (_) { projectFilter = new Set(); }
 
 showStaleCheckbox.addEventListener('change', () => {
   showStale = showStaleCheckbox.checked;
@@ -77,20 +80,22 @@ projFilterDropdown.addEventListener('click', e => e.stopPropagation());
 
 document.getElementById('proj-select-all').addEventListener('click', () => {
   projCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = true; });
-  projectFilter = new Set();
+  projectFilter = new Set(); // empty = all
   saveProjectFilter();
   render(sessions);
 });
 document.getElementById('proj-select-none').addEventListener('click', () => {
   projCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = false; });
-  projectFilter = new Set(['__none__']); // special sentinel — show nothing
+  projectFilter = new Set(['__none__']); // sentinel: show nothing
   saveProjectFilter();
   render(sessions);
 });
 
 function saveProjectFilter() {
   localStorage.setItem('mb-project-filter', JSON.stringify([...projectFilter]));
-  projFilterBtn.classList.toggle('active', projectFilter.size > 0);
+  // Button is "active" only when a real subset is selected (not all, not none)
+  const isSubset = projectFilter.size > 0 && !projectFilter.has('__none__');
+  projFilterBtn.classList.toggle('active', isSubset || projectFilter.has('__none__'));
 }
 
 panelClose.addEventListener('click', closePanel);
@@ -201,20 +206,17 @@ function updateProjectFilter(all) {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.value = p;
+    // checked = shown; empty set means all shown
     cb.checked = projectFilter.size === 0 || projectFilter.has(p);
     cb.addEventListener('change', () => {
-      if (cb.checked) {
-        projectFilter.delete(p);
-        // if all checked, reset to empty (= all)
-        const allChecked = [...projCheckboxes.querySelectorAll('input')].every(c => c.checked);
-        if (allChecked) projectFilter = new Set();
+      // Rebuild inclusion set from current checkbox state
+      const checked = [...projCheckboxes.querySelectorAll('input')].filter(c => c.checked).map(c => c.value);
+      if (checked.length === projects.length) {
+        projectFilter = new Set(); // all selected = no filter
+      } else if (checked.length === 0) {
+        projectFilter = new Set(['__none__']); // none selected
       } else {
-        if (projectFilter.size === 0) {
-          // was "all" — seed with all projects minus this one
-          projectFilter = new Set(projects.filter(x => x !== p));
-        } else {
-          projectFilter.add(p);
-        }
+        projectFilter = new Set(checked);
       }
       saveProjectFilter();
       render(sessions);
@@ -223,19 +225,16 @@ function updateProjectFilter(all) {
     label.appendChild(document.createTextNode(p));
     projCheckboxes.appendChild(label);
   }
-  projFilterBtn.classList.toggle('active', projectFilter.size > 0 && !projectFilter.has('__none__') ||
-    projectFilter.has('__none__'));
+  saveProjectFilter();
 }
 
 function render(all) {
   let visible = showStale ? all : all.filter(s => s.status !== 'stale');
   if (!showArchived) visible = visible.filter(s => !s.archived);
-  if (projectFilter.size > 0) {
-    if (projectFilter.has('__none__')) {
-      visible = [];
-    } else {
-      visible = visible.filter(s => !projectFilter.has(s.project_name));
-    }
+  if (projectFilter.has('__none__')) {
+    visible = [];
+  } else if (projectFilter.size > 0) {
+    visible = visible.filter(s => projectFilter.has(s.project_name));
   }
 
   const active = all.filter(s => s.status === 'active').length;
