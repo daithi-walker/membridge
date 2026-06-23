@@ -6,16 +6,19 @@ Planned and future work, roughly ordered by priority.
 
 ## Near-term
 
-### Feature tests
+### Tests — HIGHEST PRIORITY
 No automated tests exist. Need pytest coverage for:
 - Heartbeat upsert (new vs existing session)
 - Status computation (active/idle/stale/PID-alive override)
+- `add_summary()` / `get_summaries()` / `summary_file_already_ingested()`
 - Settings CRUD
+- Summary file poller (mock filesystem, verify dedup by file_path)
+- `/api/sessions/{id}/summarise` endpoint (mock `_generate_summary`)
 - Focus server `/pid/<pid>` endpoint
-- `sync_iterm_tabs.py` dry-run output
+- `sync_iterm_tabs.py` dry-run output (mock iTerm2 API response)
 
 ### Mount static files as Docker volume
-Static files are currently baked into the image — every frontend change requires `docker compose build --no-cache`. Mounting `claude_ui/static/` as a volume would allow live edits without rebuilding.
+Static files are currently baked into the image — every frontend change requires `docker compose build`. Mounting `claude_ui/static/` as a volume would allow live edits without rebuilding.
 
 ```yaml
 volumes:
@@ -52,12 +55,6 @@ Periodically sweep `~/.claude/projects/` and upload transcripts to GCS before Cl
 - Stored at `gs://<bucket>/transcripts/<session-id>.jsonl`
 - Enables session state recovery and audit
 
-### `/summarize` slash command
-A Claude Code slash command that POSTs a detailed summary + next steps to `PATCH /api/sessions/{id}`.
-- User types `/summarize` in Claude Code
-- Claude reads the transcript and writes a structured work log
-- Stored in the `notes` field, displayed in the side panel
-
 ### Auto sync_iterm_tabs
 Run `sync_iterm_tabs.py` periodically (e.g. every 5 min via launchd) so tab aliases update without manual intervention. Requires `ITERM2_PYTHON` to be set and iTerm2 Python runtime installed.
 
@@ -74,3 +71,29 @@ Run `sync_iterm_tabs.py` periodically (e.g. every 5 min via launchd) so tab alia
 - Launch `claude --resume <id>` or a new session from the dashboard
 - Potentially run sessions in Docker containers managed by the UI
 - Temporal integration for long-running agent workflows
+
+---
+
+## Completed
+
+- ✅ Session registration via UserPromptSubmit hook
+- ✅ Auto-summary on Stop via Claude haiku (Anthropic + Vertex)
+- ✅ Dashboard with active/idle/stale status, git branch, prompt count
+- ✅ Project filter
+- ✅ Session modal (detail view: metadata, summary, notes, history)
+- ✅ Focus button (iTerm2 integration, osascript)
+- ✅ iTerm tab name column in main table
+- ✅ Stale UUID auto-clear in sync_iterm_tabs.py
+- ✅ Copy resume command
+- ✅ Backfill from ~/.claude/projects/
+- ✅ Dark/light theme toggle
+- ✅ PreToolUse hook → /api/touch (keeps session active during long responses)
+- ✅ session_summaries append-only log table
+- ✅ History UI in modal — always visible, grouped by file, collapsible
+- ✅ Markdown rendering in summary and history entries
+- ✅ /summarize slash command (Bash heredoc, dynamic path)
+- ✅ Summary file poller (30s, dedup by file_path)
+- ✅ Delete session endpoint
+- ✅ Re-summarise endpoint
+- ✅ Vertex AI ADC mount in Docker
+- ✅ Rename claude-ui → membridge

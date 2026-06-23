@@ -234,7 +234,7 @@ function buildRow(s) {
   const summaryTd = td('col-summary');
   const summaryEl = document.createElement('div');
   summaryEl.className = 'summary-text' + (s.summary ? '' : ' empty');
-  summaryEl.textContent = s.summary ? s.summary.slice(0, 120) + (s.summary.length > 120 ? '…' : '') : '';
+  summaryEl.textContent = s.summary ? stripMd(s.summary).slice(0, 120) + (stripMd(s.summary).length > 120 ? '…' : '') : '';
   if (s.summary && s.summary_source === 'auto') {
     const autoBadge = document.createElement('span');
     autoBadge.className = 'auto-badge';
@@ -311,23 +311,7 @@ function openPanel(s, scrollIntoView) {
     });
   };
 
-  const historyToggle = document.getElementById('panel-history-toggle');
-  const historyPanel = document.getElementById('panel-summary-history');
-  const historyList = document.getElementById('panel-history-list');
-  let historyOpen = false;
-  historyPanel.style.display = 'none';
-  historyToggle.textContent = 'History';
-  historyToggle.onclick = async () => {
-    historyOpen = !historyOpen;
-    if (historyOpen) {
-      historyPanel.style.display = 'block';
-      historyToggle.textContent = 'Hide';
-      await loadHistory(s.session_id);
-    } else {
-      historyPanel.style.display = 'none';
-      historyToggle.textContent = 'History';
-    }
-  };
+  loadHistory(s.session_id);
 
   const summariseBtn = document.getElementById('panel-summarise-btn');
   summariseBtn.textContent = '↻ Summarise';
@@ -343,7 +327,7 @@ function openPanel(s, scrollIntoView) {
         summariseBtn.textContent = '✓ Queued';
         setTimeout(async () => {
           await fetchSessions();
-          if (historyOpen) await loadHistory(s.session_id);
+          await loadHistory(s.session_id);
         }, 8000);
       }
     } catch (_) {
@@ -484,8 +468,7 @@ function startPanelSummaryEdit(s, el) {
       });
       s.summary = newSummary;
       s.summary_source = 'user';
-      const hp = document.getElementById('panel-summary-history');
-      if (hp && hp.style.display !== 'none') await loadHistory(s.session_id);
+      await loadHistory(s.session_id);
     }
     const newEl = makeSummaryEl(s);
     textarea.replaceWith(newEl);
@@ -505,6 +488,17 @@ function makeSummaryEl(s) {
   renderMarkdown(el, s.summary || '');
   el.addEventListener('click', function() { startPanelSummaryEdit(s, this); });
   return el;
+}
+
+function stripMd(text) {
+  return text
+    .replace(/^#{1,6}\s+/gm, '')     // headings
+    .replace(/\*\*(.+?)\*\*/g, '$1') // bold
+    .replace(/\*(.+?)\*/g, '$1')     // italic
+    .replace(/^[-*+]\s+/gm, '')      // list bullets
+    .replace(/`(.+?)`/g, '$1')       // inline code
+    .replace(/\n+/g, ' ')            // newlines → space
+    .trim();
 }
 
 function renderMarkdown(el, text) {
