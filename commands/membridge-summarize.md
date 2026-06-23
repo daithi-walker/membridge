@@ -3,11 +3,11 @@ description: Summarize this Claude Code session and push to MemBridge
 allowed-tools: Bash
 ---
 
-Generate a concise summary of this session and write it to MemBridge so it appears in the dashboard.
+Generate a concise summary of this session and push it directly to MemBridge.
 
 **Instructions:**
 
-1. First, fetch any existing summaries for this session to determine what's already been recorded:
+1. First, fetch any existing summaries to determine what's already been recorded:
 
 ```bash
 SESSION_ID="$CLAUDE_CODE_SESSION_ID"
@@ -16,20 +16,32 @@ curl -s "http://localhost:7842/api/sessions/$SESSION_ID/summaries" 2>/dev/null |
 
 2. Review the conversation so far. If previous summaries exist, **only cover what happened since the most recent one** — treat it as a delta/update. If no summaries exist, summarize the full session.
 
-3. Use Bash to write the file. Get the session ID and timestamp dynamically:
+3. Push the summary directly to the server via the API:
 
 ```bash
 SESSION_ID="$CLAUDE_CODE_SESSION_ID"
-TIMESTAMP=$(date +%Y-%m-%d-%H%M)
-DIR="$HOME/.membridge/summaries/$SESSION_ID"
-mkdir -p "$DIR"
-cat > "$DIR/$TIMESTAMP.md" << 'SUMMARY_EOF'
-<your summary content here>
-SUMMARY_EOF
-echo "Written: $DIR/$TIMESTAMP.md"
+curl -s -X POST "http://localhost:7842/api/sessions/$SESSION_ID/push-summary" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source": "skill",
+    "text": "<your summary content here — escape quotes and newlines for valid JSON>"
+  }'
 ```
 
-4. The file content must follow this exact structure:
+Use a shell heredoc to build the JSON safely:
+
+```bash
+SESSION_ID="$CLAUDE_CODE_SESSION_ID"
+SUMMARY_TEXT=$(cat << 'SUMMARY_EOF'
+<your full summary content here>
+SUMMARY_EOF
+)
+curl -s -X POST "http://localhost:7842/api/sessions/$SESSION_ID/push-summary" \
+  -H "Content-Type: application/json" \
+  --data-binary "$(python3 -c "import json,sys; print(json.dumps({'source':'skill','text':sys.stdin.read()}))" <<< "$SUMMARY_TEXT")"
+```
+
+4. The summary must follow this structure:
 
 ```
 ## Summary
@@ -46,10 +58,10 @@ echo "Written: $DIR/$TIMESTAMP.md"
 
 5. Be specific — name files, functions, features, bugs, endpoints, or decisions. Avoid vague statements like "worked on the codebase".
 
-6. After writing, confirm with the path and a one-line recap.
+6. After the curl succeeds, confirm with a one-line recap. The response `{"ok":true,"status":"added"}` means it landed immediately in the DB. `{"ok":true,"status":"unchanged"}` means the text matched the last entry and was skipped.
 
 **Notes:**
-- MemBridge polls for new files every 30 seconds — the summary will appear automatically
+- No file is written to disk — the summary goes straight to the DB via HTTP POST
 - `$CLAUDE_CODE_SESSION_ID` is the correct env var for the session ID
-- Write the entire file in a single Bash heredoc — do not use the Write tool
 - If a prior summary exists, the new entry is a delta — don't repeat what was already captured
+- The server deduplicates by text — same content won't create a duplicate entry

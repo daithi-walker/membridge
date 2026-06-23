@@ -286,6 +286,25 @@ def patch_session(session_id: str, patch: SessionPatch) -> dict:
     return {"ok": True}
 
 
+class PushSummaryPayload(BaseModel):
+    text: str
+    source: str = "skill"
+
+
+@app.post("/api/sessions/{session_id}/push-summary")
+def push_summary(session_id: str, payload: PushSummaryPayload) -> dict:
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not payload.text.strip():
+        raise HTTPException(status_code=400, detail="text is required")
+    if payload.text.strip() == db.last_auto_summary_text(session_id):
+        return {"ok": True, "status": "unchanged"}
+    db.add_summary(session_id, payload.text.strip(), source=payload.source, file_path=None)
+    logger.info("Summary pushed for session %s (source=%s)", session_id, payload.source)
+    return {"ok": True, "status": "added"}
+
+
 @app.post("/api/sessions/{session_id}/summarise")
 async def trigger_summarise(session_id: str) -> dict:
     session = db.get_session(session_id)
