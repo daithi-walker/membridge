@@ -112,21 +112,27 @@ def touch(payload: TouchPayload) -> dict:
 
 @app.post("/api/stop")
 async def stop(payload: StopPayload) -> dict:
-    db.record_stop(payload.session_id, payload.stop_reason)
+    was_awaiting = db.record_stop(payload.session_id, payload.stop_reason)
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
-    _notify_stop(payload.session_id)
+    _notify_stop(payload.session_id, was_awaiting)
     return {"ok": True}
 
 
-def _notify_stop(session_id: str) -> None:
+def _notify_stop(session_id: str, was_already_awaiting: bool) -> None:
     try:
+        # Only notify on 0→1 transition — skip if session was already awaiting
+        if was_already_awaiting:
+            return
         session = db.get_session(session_id)
         if not session:
             return
+        # Skip if the user is already looking at this session
+        uuid = session.get("iterm_session_uuid")
+        if uuid and _focus.is_session_frontmost(uuid):
+            return
         project = session.get("project_name") or "Claude"
         description = session.get("description") or ""
-        # Trim bracketed description prefix e.g. "[Fixing auth bug]" → "Fixing auth bug"
         subtitle = description.strip("[] \n").split("\n")[0][:80] if description else "Awaiting input"
         script = (
             f'display notification "{subtitle}" '

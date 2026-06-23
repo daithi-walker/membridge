@@ -156,12 +156,18 @@ def upsert_heartbeat(
             return UpsertResult(is_new=True, uuid_changed=False, stored_tab_name=None)
 
 
-def record_stop(session_id: str, stop_reason: str) -> None:
+def record_stop(session_id: str, stop_reason: str) -> bool:
+    """Set awaiting_input=1. Returns True if session was already awaiting (no transition)."""
     with _conn() as conn:
+        row = conn.execute(
+            "SELECT awaiting_input FROM sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+        was_awaiting = bool(row and row[0])
         conn.execute(
             "UPDATE sessions SET last_stop_reason = ?, awaiting_input = 1 WHERE session_id = ?",
             (stop_reason, session_id),
         )
+    return was_awaiting
 
 
 def add_summary(

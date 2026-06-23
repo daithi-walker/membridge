@@ -102,6 +102,18 @@ tell application "iTerm2"
 end tell
 """
 
+_IS_FRONTMOST = """
+tell application "iTerm2"
+    if not frontmost then return "false"
+    try
+        set targetUUID to "{uuid}"
+        set cs to current session of current tab of current window
+        if unique ID of cs is targetUUID then return "true"
+    end try
+    return "false"
+end tell
+"""
+
 
 def _run(script: str, timeout: int = 5) -> str:
     result = subprocess.run(
@@ -177,3 +189,12 @@ def rename_tab(old_name: str, new_name: str) -> str:
 def list_sessions() -> list[str]:
     raw = _run(_LIST_SESSIONS)
     return [n.strip() for n in raw.split(",") if n.strip()]
+
+
+def is_session_frontmost(iterm_uuid: str) -> bool:
+    """Return True if iTerm2 is frontmost and this session's tab is active."""
+    try:
+        script = _IS_FRONTMOST.format(uuid=iterm_uuid.replace('"', '\\"'))
+        return _run(script) == "true"
+    except Exception:
+        return False
