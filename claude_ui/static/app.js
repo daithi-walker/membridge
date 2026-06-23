@@ -231,6 +231,11 @@ function buildRow(s) {
   countTd.innerHTML = `<span class="count-text">${s.prompt_count}</span>`;
   tr.appendChild(countTd);
 
+  const descTd = td('col-desc');
+  descTd.style.cssText = 'font-size:12px;color:var(--text-muted);overflow:hidden;max-height:2.8em';
+  descTd.textContent = s.summary ? stripMd(s.summary).slice(0, 140) + (stripMd(s.summary).length > 140 ? '…' : '') : '';
+  tr.appendChild(descTd);
+
   const chevTd = td('col-chevron');
   chevTd.innerHTML = `<span class="chevron">›</span>`;
   tr.appendChild(chevTd);
