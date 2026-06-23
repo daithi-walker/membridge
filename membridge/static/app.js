@@ -463,6 +463,8 @@ function openPanel(s, scrollIntoView) {
   notesArea.value = s.notes || '';
   notesArea._session = s;
 
+  initTicketsInput(s);
+
   panelOverlay.classList.add('open');
 }
 
@@ -532,6 +534,65 @@ function makeHistoryEntry(e) {
   div.appendChild(meta);
   div.appendChild(text);
   return div;
+}
+
+function initTicketsInput(s) {
+  const wrap = document.getElementById('panel-tickets-wrap');
+  const input = document.getElementById('panel-ticket-input');
+  wrap.querySelectorAll('.ticket-tag').forEach(t => t.remove());
+  const tickets = (s.tickets || '').split(',').map(t => t.trim()).filter(Boolean);
+  for (const t of tickets) wrap.insertBefore(makeTicketTag(t, s), input);
+  input.value = '';
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = input.value.trim().replace(/^#/, '');
+      if (val) { addTicket(s, val); input.value = ''; }
+    } else if (e.key === 'Backspace' && !input.value) {
+      const tags = wrap.querySelectorAll('.ticket-tag');
+      if (tags.length) {
+        const last = tags[tags.length - 1];
+        last.remove();
+        saveTickets(s);
+      }
+    }
+  };
+  wrap.addEventListener('click', () => input.focus());
+}
+
+function makeTicketTag(ticket, s) {
+  const tag = document.createElement('span');
+  tag.className = 'ticket-tag';
+  tag.dataset.ticket = ticket;
+  const label = document.createTextNode(`#${ticket} `);
+  tag.appendChild(label);
+  const x = document.createElement('button');
+  x.className = 'ticket-tag-x';
+  x.textContent = '×';
+  x.title = 'Remove';
+  x.onclick = (e) => { e.stopPropagation(); tag.remove(); saveTickets(s); };
+  tag.appendChild(x);
+  return tag;
+}
+
+function addTicket(s, ticket) {
+  const wrap = document.getElementById('panel-tickets-wrap');
+  const input = document.getElementById('panel-ticket-input');
+  const existing = [...wrap.querySelectorAll('.ticket-tag')].map(t => t.dataset.ticket);
+  if (existing.includes(ticket)) return;
+  wrap.insertBefore(makeTicketTag(ticket, s), input);
+  saveTickets(s);
+}
+
+async function saveTickets(s) {
+  const wrap = document.getElementById('panel-tickets-wrap');
+  const tickets = [...wrap.querySelectorAll('.ticket-tag')].map(t => t.dataset.ticket).join(',');
+  s.tickets = tickets;
+  await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tickets }),
+  });
 }
 
 function closePanel() {

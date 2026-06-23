@@ -164,7 +164,7 @@ def main() -> None:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     os.environ.setdefault("MEMBRIDGE_DB", str(MEMBRIDGE_DB))
 
-    from claude_ui.db import init_db, upsert_heartbeat, update_description, record_stop
+    from membridge.db import init_db, upsert_heartbeat, update_description, record_stop
     import sqlite3
 
     init_db()
@@ -203,8 +203,8 @@ def main() -> None:
 
     if args.summarise:
         print("\nGenerating AI summaries (this may take a while)...")
-        from claude_ui.summariser import summarise
-        from claude_ui.db import get_session
+        from membridge.summariser import summarise
+        from membridge.db import get_session
 
         for s in sessions:
             session = get_session(s["session_id"])

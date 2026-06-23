@@ -659,6 +659,56 @@
       line-height: 1;
     }
     #settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Ticket tags ── */
+    .tickets-input-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 6px;
+      min-height: 32px;
+      cursor: text;
+    }
+    .tickets-input-wrap:focus-within { border-color: var(--accent); }
+    .ticket-tag {
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-size: 11px;
+      font-family: monospace;
+      padding: 2px 5px 2px 7px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+      border: none;
+    }
+    button.ticket-tag-x {
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1;
+      border: none;
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+    button.ticket-tag-x:hover { color: var(--text); border: none; background: transparent; }
+    .ticket-text-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 12px;
+      font-family: inherit;
+      min-width: 80px;
+      flex: 1;
+      padding: 0;
+    }
   </style>
 </head>
 <body>
@@ -809,6 +859,13 @@
         <div>
           <div class="panel-section-title">Description <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(click to edit)</span></div>
           <div class="panel-summary-text" id="panel-summary" title="Click to edit"></div>
+        </div>
+
+        <div>
+          <div class="panel-section-title">Tickets <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(Enter or comma to add)</span></div>
+          <div class="tickets-input-wrap" id="panel-tickets-wrap">
+            <input class="ticket-text-input" id="panel-ticket-input" placeholder="add ticket…">
+          </div>
         </div>
 
         <div>

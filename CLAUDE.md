@@ -5,7 +5,7 @@ Local Claude Code session tracker. See README.md for full setup.
 ## Structure
 
 ```
-claude_ui/          FastAPI app (Python)
+membridge/          FastAPI app (Python)
   server.py         API routes + heartbeat/stop handlers
   db.py             SQLite helpers (sessions + settings tables)
   summariser.py     Anthropic API summary generation

@@ -13,8 +13,8 @@ dependencies = [
 ]
 
 [project.scripts]
-membridge = "claude_ui.server:main"
+membridge = "membridge.server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["claude_ui*"]
+include = ["membridge*"]

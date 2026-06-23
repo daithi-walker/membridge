@@ -54,7 +54,7 @@ Heartbeats are silently dropped if the server is down when a hook fires.
 ## Medium-term
 
 ### Drop Docker volume mount for static files
-Blocked by item 1 (Drop Docker) — becomes a non-issue once the server runs natively. If Docker is kept, mount `./claude_ui/static:/app/claude_ui/static` to avoid rebuilding on every frontend change.
+Blocked by item 1 (Drop Docker) — becomes a non-issue once the server runs natively. If Docker is kept, mount `./membridge/static:/app/membridge/static` to avoid rebuilding on every frontend change.
 
 ### GCS transcript archival
 Sweep `~/.claude/projects/` and upload transcripts to GCS before Claude Code's auto-compaction discards them. Gives session state recovery and audit trail without relying on local disk.

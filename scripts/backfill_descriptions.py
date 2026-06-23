@@ -19,8 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from claude_ui import db
-from claude_ui.summariser import _get_client, MODEL
+from membridge import db
+from membridge.summariser import _get_client, MODEL
 
 
 def condense(text: str) -> str | None:

@@ -43,6 +43,8 @@ rm -f "$HOME/.claude/commands/summarize.md"
 echo "    /membridge-summarize → ~/.claude/commands/membridge-summarize.md"
 echo "    /membridge-archive   → ~/.claude/commands/membridge-archive.md"
 echo "    /membridge-recall    → ~/.claude/commands/membridge-recall.md"
+cp "$PROJECT_DIR/commands/membridge-context.md" "$HOME/.claude/commands/membridge-context.md"
+echo "    /membridge-context   → ~/.claude/commands/membridge-context.md"
 
 # ── 3. Register hooks in ~/.claude/settings.json ──────────────────────────────
 echo ""
