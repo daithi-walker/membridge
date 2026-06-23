@@ -259,8 +259,8 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       box-shadow: 0 12px 48px rgba(0,0,0,0.5);
-      width: min(720px, 100%);
-      max-height: 85vh;
+      width: min(900px, 96vw);
+      max-height: 90vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -350,10 +350,9 @@
     .panel-summary-text {
       font-size: 13px;
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.6;
       cursor: text;
       min-height: 24px;
-      white-space: pre-wrap;
     }
 
     .panel-summary-text:empty::before {
@@ -557,9 +556,46 @@
     .history-text {
       font-size: 12px;
       color: var(--text);
-      line-height: 1.5;
-      white-space: pre-wrap;
+      line-height: 1.6;
     }
+
+    /* Markdown prose resets for rendered content */
+    .md-prose h1, .md-prose h2, .md-prose h3 {
+      font-size: 12px;
+      font-weight: 700;
+      margin: 8px 0 3px;
+      color: var(--text);
+    }
+    .md-prose h1 { font-size: 13px; }
+    .md-prose p  { margin: 0 0 6px; }
+    .md-prose p:last-child { margin-bottom: 0; }
+    .md-prose ul, .md-prose ol { margin: 0 0 6px 16px; padding: 0; }
+    .md-prose li { margin-bottom: 2px; }
+    .md-prose code { font-family: monospace; font-size: 11px; background: var(--surface2); padding: 1px 4px; border-radius: 3px; }
+    .md-prose pre  { background: var(--surface2); border-radius: 4px; padding: 8px; overflow-x: auto; margin: 6px 0; }
+    .md-prose pre code { background: none; padding: 0; }
+    .md-prose strong { font-weight: 700; }
+    .md-prose em { font-style: italic; }
+
+    /* History file group collapsible */
+    .history-group-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      padding: 4px 0;
+      user-select: none;
+    }
+    .history-group-header:hover { color: var(--text); }
+    .history-group-chevron { font-size: 8px; transition: transform 0.15s; }
+    .history-group.collapsed .history-group-chevron { transform: rotate(-90deg); }
+    .history-group.collapsed .history-group-body { display: none; }
+    .history-group { margin-bottom: 10px; }
 
     .btn-summarise {
       border-color: var(--border);
@@ -734,6 +770,7 @@
     </div><!-- /panel-overlay -->
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

@@ -279,7 +279,7 @@ function openPanel(s, scrollIntoView) {
   document.getElementById('panel-first').textContent = formatDateTime(s.first_seen);
   document.getElementById('panel-last').textContent = relativeTime(s.last_seen);
   document.getElementById('panel-prompts').textContent = s.prompt_count;
-  document.getElementById('panel-summary').textContent = s.summary || '';
+  renderMarkdown(document.getElementById('panel-summary'), s.summary || '');
 
   const focusBtn = document.getElementById('panel-focus-btn');
   focusBtn.textContent = s.pid ? '⌘ Focus' : '⌘ Open';
@@ -379,19 +379,63 @@ async function loadHistory(sessionId) {
       historyList.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:4px 0">No summaries yet.</div>';
       return;
     }
-    historyList.innerHTML = entries.map(e => `
-      <div class="history-entry">
-        <div class="history-meta">
-          <span class="history-source history-source-${esc(e.source)}">${esc(e.source)}</span>
-          <span>${relativeTime(e.created_at)}</span>
-          ${e.file_path ? `<span title="${esc(e.file_path)}" style="opacity:0.6">file</span>` : ''}
-        </div>
-        <div class="history-text">${esc(e.text)}</div>
-      </div>
-    `).join('');
+
+    // Group by file_path (skill entries), ungrouped for auto/user
+    const groups = [];
+    const byFile = new Map();
+    for (const e of entries) {
+      if (e.file_path) {
+        if (!byFile.has(e.file_path)) {
+          const g = { file_path: e.file_path, entries: [] };
+          byFile.set(e.file_path, g);
+          groups.push(g);
+        }
+        byFile.get(e.file_path).entries.push(e);
+      } else {
+        groups.push({ file_path: null, entries: [e] });
+      }
+    }
+
+    historyList.innerHTML = '';
+    for (const g of groups) {
+      if (g.file_path) {
+        // Collapsible file group
+        const label = g.file_path.split('/').pop();
+        const groupEl = document.createElement('div');
+        groupEl.className = 'history-group';
+        const header = document.createElement('div');
+        header.className = 'history-group-header';
+        header.innerHTML = `<span class="history-group-chevron">▾</span><span>${esc(label)}</span><span style="font-weight:400;margin-left:auto">${relativeTime(g.entries[0].created_at)}</span>`;
+        header.addEventListener('click', () => groupEl.classList.toggle('collapsed'));
+        const body = document.createElement('div');
+        body.className = 'history-group-body';
+        for (const e of g.entries) {
+          body.appendChild(makeHistoryEntry(e));
+        }
+        groupEl.appendChild(header);
+        groupEl.appendChild(body);
+        historyList.appendChild(groupEl);
+      } else {
+        historyList.appendChild(makeHistoryEntry(g.entries[0]));
+      }
+    }
   } catch (_) {
     historyList.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">Failed to load history.</div>';
   }
+}
+
+function makeHistoryEntry(e) {
+  const div = document.createElement('div');
+  div.className = 'history-entry';
+  const meta = document.createElement('div');
+  meta.className = 'history-meta';
+  meta.innerHTML = `<span class="history-source history-source-${esc(e.source)}">${esc(e.source)}</span><span>${relativeTime(e.created_at)}</span>`;
+  const text = document.createElement('div');
+  text.className = 'history-text';
+  renderMarkdown(text, e.text);
+  div.appendChild(meta);
+  div.appendChild(text);
+  return div;
 }
 
 function closePanel() {
@@ -443,27 +487,34 @@ function startPanelSummaryEdit(s, el) {
       const hp = document.getElementById('panel-summary-history');
       if (hp && hp.style.display !== 'none') await loadHistory(s.session_id);
     }
-    const newEl = document.createElement('div');
-    newEl.id = 'panel-summary';
-    newEl.className = 'panel-summary-text';
-    newEl.textContent = s.summary || '';
-    newEl.title = 'Click to edit';
-    newEl.addEventListener('click', function() { startPanelSummaryEdit(s, this); });
+    const newEl = makeSummaryEl(s);
     textarea.replaceWith(newEl);
   }
 
   textarea.addEventListener('blur', save);
   textarea.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      const newEl = document.createElement('div');
-      newEl.id = 'panel-summary';
-      newEl.className = 'panel-summary-text';
-      newEl.textContent = s.summary || '';
-      newEl.title = 'Click to edit';
-      newEl.addEventListener('click', function() { startPanelSummaryEdit(s, this); });
-      textarea.replaceWith(newEl);
-    }
+    if (e.key === 'Escape') textarea.replaceWith(makeSummaryEl(s));
   });
+}
+
+function makeSummaryEl(s) {
+  const el = document.createElement('div');
+  el.id = 'panel-summary';
+  el.className = 'panel-summary-text';
+  el.title = 'Click to edit';
+  renderMarkdown(el, s.summary || '');
+  el.addEventListener('click', function() { startPanelSummaryEdit(s, this); });
+  return el;
+}
+
+function renderMarkdown(el, text) {
+  if (!text) { el.innerHTML = ''; return; }
+  if (typeof marked !== 'undefined') {
+    el.innerHTML = marked.parse(text, { breaks: true, gfm: true });
+    el.classList.add('md-prose');
+  } else {
+    el.textContent = text;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
