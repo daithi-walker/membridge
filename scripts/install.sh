@@ -44,7 +44,7 @@ echo ""
 echo "==> Installing Python package..."
 cd "$PROJECT_DIR"
 uv venv --python 3.12 --clear .venv
-uv pip install --python .venv/bin/python --no-cache .
+uv pip install --python .venv/bin/python --no-cache -e .
 echo "    Installed: $PROJECT_DIR/.venv"
 
 # ── 3. Data directory ─────────────────────────────────────────────────────────
