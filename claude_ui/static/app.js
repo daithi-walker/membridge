@@ -14,6 +14,7 @@ indicator.addEventListener('click', syncAndRefresh);
 const showStaleCheckbox = document.getElementById('show-stale');
 const themeToggle = document.getElementById('theme-toggle');
 const projectSelect = document.getElementById('project-filter');
+const panelOverlay = document.getElementById('panel-overlay');
 const panel = document.getElementById('side-panel');
 const panelClose = document.getElementById('panel-close');
 const settingsBtn = document.getElementById('settings-btn');
@@ -60,6 +61,7 @@ projectSelect.addEventListener('change', () => {
 });
 
 panelClose.addEventListener('click', closePanel);
+panelOverlay.addEventListener('click', e => { if (e.target === panelOverlay) closePanel(); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (settingsOverlay.classList.contains('open')) closeSettings();
@@ -365,8 +367,7 @@ function openPanel(s, scrollIntoView) {
   notesArea.value = s.notes || '';
   notesArea._session = s;
 
-  panel.classList.add('open');
-  document.getElementById('layout').classList.add('panel-open');
+  panelOverlay.classList.add('open');
 }
 
 async function loadHistory(sessionId) {
@@ -395,8 +396,7 @@ async function loadHistory(sessionId) {
 
 function closePanel() {
   activePanel = null;
-  panel.classList.remove('open');
-  document.getElementById('layout').classList.remove('panel-open');
+  panelOverlay.classList.remove('open');
   document.querySelectorAll('#sessions-body tr').forEach(r => r.classList.remove('row-active'));
 }
 

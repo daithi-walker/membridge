@@ -22,7 +22,6 @@
       --idle-dim:    #451a03;
       --stale:       #555555;
       --stale-dim:   #1c1c1c;
-      --panel-width: 360px;
     }
 
     [data-theme="light"] {
@@ -206,8 +205,8 @@
 
     .col-status  { width: 76px; }
     .col-project { width: 140px; }
-    .col-iterm   { min-width: 100px; max-width: 160px; }
-    .col-branch  { min-width: 100px; max-width: 180px; }
+    .col-iterm   { width: 120px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-branch  { min-width: 100px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .col-last    { width: 100px; white-space: nowrap; }
     .col-prompts { width: 64px; text-align: right; }
     .col-summary { min-width: 200px; }
@@ -241,45 +240,45 @@
 
     .chevron { font-size: 16px; }
 
-    /* ── Side Panel ── */
-    #side-panel {
+    /* ── Session modal ── */
+    #panel-overlay {
+      display: none;
       position: fixed;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: var(--panel-width);
-      border-left: 1px solid var(--border);
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    [data-theme="light"] #panel-overlay { background: rgba(0,0,0,0.3); }
+    #panel-overlay.open { display: flex; }
+
+    #side-panel {
       background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+      width: min(720px, 100%);
+      max-height: 85vh;
       display: flex;
       flex-direction: column;
-      transform: translateX(100%);
-      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 100;
-      box-shadow: -4px 0 24px rgba(0,0,0,0.4);
-      overflow-y: auto;
-    }
-    #side-panel.open { transform: translateX(0); }
-
-    /* Shift content area to make room when panel is open */
-    #layout.panel-open #content {
-      margin-right: var(--panel-width);
-      transition: margin-right 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
     }
 
     .panel-header {
-      padding: 14px 16px;
+      padding: 16px 20px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: flex-start;
-      gap: 8px;
+      gap: 10px;
+      flex-shrink: 0;
     }
 
-    .panel-title {
-      flex: 1;
-    }
+    .panel-title { flex: 1; }
 
     .panel-title h2 {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--text);
     }
@@ -300,15 +299,15 @@
       cursor: pointer;
       padding: 0 4px;
       line-height: 1;
-      margin-top: -2px;
     }
     #panel-close:hover { color: var(--text); }
 
     .panel-body {
-      padding: 14px 16px;
+      padding: 16px 20px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
+      overflow-y: auto;
       flex: 1;
     }
 
@@ -317,9 +316,7 @@
       gap: 8px;
     }
 
-    .panel-actions button {
-      flex: 1;
-    }
+    .panel-actions button { flex: 1; }
 
     .panel-meta {
       display: grid;
@@ -670,7 +667,8 @@
       </div>
     </div>
 
-    <!-- Side panel -->
+    <!-- Session modal -->
+    <div id="panel-overlay">
     <div id="side-panel">
       <div class="panel-header">
         <div class="panel-title">
@@ -733,6 +731,7 @@
         </div>
       </div>
     </div>
+    </div><!-- /panel-overlay -->
   </div>
 
   <script src="/static/app.js"></script>
