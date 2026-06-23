@@ -16,29 +16,22 @@ curl -s "http://localhost:7842/api/sessions/$SESSION_ID/summaries" 2>/dev/null |
 
 2. Review the conversation so far. If previous summaries exist, **only cover what happened since the most recent one** — treat it as a delta/update. If no summaries exist, summarize the full session.
 
-3. Push the summary directly to the server via the API:
+3. Write the summary to a temp file then POST it. This preserves real newlines:
 
 ```bash
 SESSION_ID="$CLAUDE_CODE_SESSION_ID"
-curl -s -X POST "http://localhost:7842/api/sessions/$SESSION_ID/push-summary" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "source": "skill",
-    "text": "<your summary content here — escape quotes and newlines for valid JSON>"
-  }'
-```
-
-Use a shell heredoc to build the JSON safely:
-
-```bash
-SESSION_ID="$CLAUDE_CODE_SESSION_ID"
-SUMMARY_TEXT=$(cat << 'SUMMARY_EOF'
+TMPFILE=$(mktemp /tmp/mb-summary-XXXXXX.md)
+cat > "$TMPFILE" << 'SUMMARY_EOF'
 <your full summary content here>
 SUMMARY_EOF
-)
-curl -s -X POST "http://localhost:7842/api/sessions/$SESSION_ID/push-summary" \
+python3 -c "
+import json, sys
+text = open(sys.argv[1]).read()
+print(json.dumps({'source': 'skill', 'text': text}))
+" "$TMPFILE" | curl -s -X POST "http://localhost:7842/api/sessions/$SESSION_ID/push-summary" \
   -H "Content-Type: application/json" \
-  --data-binary "$(python3 -c "import json,sys; print(json.dumps({'source':'skill','text':sys.stdin.read()}))" <<< "$SUMMARY_TEXT")"
+  --data-binary @-
+rm -f "$TMPFILE"
 ```
 
 4. The summary must follow this structure:
