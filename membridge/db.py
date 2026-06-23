@@ -47,6 +47,8 @@ _SETTINGS_DEFAULTS = {
     "active_threshold_secs": "300",    # 5 min
     "idle_threshold_secs":   "7200",   # 2 h
     "refresh_interval_secs": "30",
+    "notif_popup":           "1",
+    "notif_sound":           "0",      # off by default
 }
 
 _MIGRATIONS = [
@@ -307,7 +309,7 @@ def get_settings() -> dict:
 
 
 def update_settings(updates: dict) -> dict:
-    allowed = set(_SETTINGS_DEFAULTS.keys())
+    allowed = set(_SETTINGS_DEFAULTS.keys())  # includes notif_popup, notif_sound
     with _conn() as conn:
         for k, v in updates.items():
             if k in allowed:

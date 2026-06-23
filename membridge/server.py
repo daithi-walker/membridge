@@ -75,6 +75,8 @@ class SettingsPatch(BaseModel):
     active_threshold_secs: int | None = None
     idle_threshold_secs: int | None = None
     refresh_interval_secs: int | None = None
+    notif_popup: int | None = None
+    notif_sound: int | None = None
 
 
 class FocusPayload(BaseModel):
@@ -162,24 +164,27 @@ async def stop(payload: StopPayload) -> dict:
 
 def _notify_stop(session_id: str, was_already_awaiting: bool) -> None:
     try:
-        # Only notify on 0→1 transition — skip if session was already awaiting
         if was_already_awaiting:
             return
         session = db.get_session(session_id)
         if not session:
             return
-        # Skip if the user is already looking at this session
+        settings = db.get_settings()
+        if not settings.get("notif_popup", 1):
+            return
         uuid = session.get("iterm_session_uuid")
         if uuid and _focus.is_session_frontmost(uuid):
             return
         project = session.get("project_name") or "Claude"
         description = session.get("description") or ""
         subtitle = description.strip("[] \n").split("\n")[0][:80] if description else "Awaiting input"
+        use_sound = settings.get("notif_sound", 0)
+        sound_clause = f'sound name "Ping"' if use_sound else ""
         script = (
             f'display notification "{subtitle}" '
             f'with title "MemBridge — {project}" '
-            f'sound name "Ping"'
-        )
+            + sound_clause
+        ).strip()
         import subprocess
         subprocess.Popen(["osascript", "-e", script], close_fds=True)
     except Exception as e:

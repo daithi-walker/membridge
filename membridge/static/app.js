@@ -161,6 +161,8 @@ async function openSettings() {
   } catch (e) {
     console.error('Failed to load settings', e);
   }
+  document.getElementById('set-notif-popup').checked = localStorage.getItem('mb-notif-popup') !== 'false';
+  document.getElementById('set-notif-sound').checked = localStorage.getItem('mb-notif-sound') !== 'false';
   settingsOverlay.classList.add('open');
 }
 
@@ -183,6 +185,15 @@ async function saveSettings() {
         idle_threshold_secs: idle,
         refresh_interval_secs: refresh,
       }),
+    });
+    const notifPopup = document.getElementById('set-notif-popup').checked;
+    const notifSound = document.getElementById('set-notif-sound').checked;
+    localStorage.setItem('mb-notif-popup', notifPopup);
+    localStorage.setItem('mb-notif-sound', notifSound);
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notif_popup: notifPopup ? 1 : 0, notif_sound: notifSound ? 1 : 0 }),
     });
     REFRESH_MS = refresh * 1000;
     restartRefreshTimer();
@@ -859,16 +870,17 @@ function initColResize() {
 
 // ── SSE — push-refresh from server ───────────────────────────────────────────
 
-document.getElementById('awaiting-badge').addEventListener('click', () => {
+function jumpToAwaiting() {
   const rows = [...document.querySelectorAll('#sessions-body tr')];
-  // Find first row whose focus button has the awaiting class
   const target = rows.find(r => r.querySelector('.btn-focus-row-awaiting'));
   if (target) {
     target.scrollIntoView({ block: 'center', behavior: 'smooth' });
     target.classList.add('row-flash');
     setTimeout(() => target.classList.remove('row-flash'), 1200);
   }
-});
+}
+document.getElementById('awaiting-badge').addEventListener('click', jumpToAwaiting);
+document.getElementById('awaiting-count').addEventListener('click', jumpToAwaiting);
 
 function connectSSE() {
   const es = new EventSource('/api/events');
