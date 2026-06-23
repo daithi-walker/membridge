@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Backfill claude-ui sessions DB from existing ~/.claude/projects/ transcripts.
+Backfill membridge sessions DB from existing ~/.claude/projects/ transcripts.
 
 Reads every .jsonl transcript Claude has stored locally, extracts:
   - session_id       from the filename
@@ -29,7 +29,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
-CLAUDE_UI_DB = Path(os.getenv("CLAUDE_UI_DB", Path.home() / ".claude-ui" / "sessions.db"))
+MEMBRIDGE_DB = Path(os.getenv("MEMBRIDGE_DB", Path.home() / ".membridge" / "sessions.db"))
 
 
 def decode_cwd(folder_name: str) -> str:
@@ -107,7 +107,7 @@ def parse_transcript(jsonl_path: Path) -> dict | None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Backfill claude-ui sessions DB")
+    parser = argparse.ArgumentParser(description="Backfill membridge sessions DB")
     parser.add_argument("--dry-run", action="store_true", help="Print without writing")
     parser.add_argument("--summarise", action="store_true", help="Generate AI summaries via Vertex")
     parser.add_argument("--days", type=int, default=0, help="Only import sessions active in last N days")
@@ -162,7 +162,7 @@ def main() -> None:
 
     # Import into DB
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    os.environ.setdefault("CLAUDE_UI_DB", str(CLAUDE_UI_DB))
+    os.environ.setdefault("MEMBRIDGE_DB", str(MEMBRIDGE_DB))
 
     from claude_ui.db import init_db, upsert_heartbeat, update_summary, record_stop
     import sqlite3
@@ -180,7 +180,7 @@ def main() -> None:
             iterm_tab=None,
         )
         # Stamp accurate timestamps and prompt count directly (bypass upsert defaults)
-        conn = sqlite3.connect(CLAUDE_UI_DB)
+        conn = sqlite3.connect(MEMBRIDGE_DB)
         conn.execute(
             """UPDATE sessions
                SET first_seen = ?, last_seen = ?, prompt_count = ?

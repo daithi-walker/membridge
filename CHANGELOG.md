@@ -22,5 +22,5 @@ Initial release.
 - **Notes field** — per-session free-text work log in the side panel, auto-saved on input
 - **Dark / light theme** toggle, persisted to localStorage; dark is default
 - **Backfill script** (`scripts/backfill.py`) — imports existing session history from `~/.claude/projects/`
-- **Docker / OrbStack deployment** — main app in Docker on port 7842, SQLite persisted to `~/.claude-ui/sessions.db`
+- **Docker / OrbStack deployment** — main app in Docker on port 7842, SQLite persisted to `~/.membridge/sessions.db`
 - **Focus server** — host-side Python HTTP server (port 7843) for iTerm2 integration; registered as launchd service

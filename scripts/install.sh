@@ -26,11 +26,11 @@ echo "    Project: $PROJECT_DIR"
 echo ""
 echo "==> Building Docker image..."
 "$DOCKER_BIN" compose -f "$PROJECT_DIR/docker-compose.yml" build
-echo "    Image built: claude-ui:latest"
+echo "    Image built: membridge:latest"
 
 # ── 2. Create data directory ──────────────────────────────────────────────────
-mkdir -p "$HOME/.claude-ui"
-echo "    Data dir: $HOME/.claude-ui"
+mkdir -p "$HOME/.membridge"
+echo "    Data dir: $HOME/.membridge"
 
 # ── 3. Register hooks in ~/.claude/settings.json ──────────────────────────────
 echo ""
@@ -102,9 +102,9 @@ cat > "$PLIST_PATH" << PLIST
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>/tmp/claude-ui.log</string>
+  <string>/tmp/membridge.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/claude-ui.log</string>
+  <string>/tmp/membridge.log</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>HOME</key>
@@ -121,7 +121,7 @@ launchctl load "$PLIST_PATH"
 echo "    Loaded: $PLIST_LABEL (port 7842)"
 
 # 4b. Focus server (host Python — needs osascript access to iTerm2)
-FOCUS_PLIST_LABEL="com.daihi.claude-ui-focus"
+FOCUS_PLIST_LABEL="com.daihi.membridge-focus"
 FOCUS_PLIST_PATH="$HOME/Library/LaunchAgents/${FOCUS_PLIST_LABEL}.plist"
 
 cat > "$FOCUS_PLIST_PATH" << PLIST
@@ -141,9 +141,9 @@ cat > "$FOCUS_PLIST_PATH" << PLIST
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>/tmp/claude-ui-focus.log</string>
+  <string>/tmp/membridge-focus.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/claude-ui-focus.log</string>
+  <string>/tmp/membridge-focus.log</string>
 </dict>
 </plist>
 PLIST
@@ -157,8 +157,8 @@ echo ""
 echo "==> All done!"
 echo ""
 echo "    Dashboard:   http://localhost:7842"
-echo "    App logs:    tail -f /tmp/claude-ui.log"
-echo "    Focus logs:  tail -f /tmp/claude-ui-focus.log"
-echo "    DB:          ~/.claude-ui/sessions.db"
+echo "    App logs:    tail -f /tmp/membridge.log"
+echo "    Focus logs:  tail -f /tmp/membridge-focus.log"
+echo "    DB:          ~/.membridge/sessions.db"
 echo ""
 echo "    Hooks registered — restart Claude Code to pick them up."

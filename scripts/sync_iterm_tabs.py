@@ -22,7 +22,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-DB_PATH = Path(os.getenv("CLAUDE_UI_DB", Path.home() / ".claude-ui" / "sessions.db"))
+DB_PATH = Path(os.getenv("MEMBRIDGE_DB", Path.home() / ".membridge" / "sessions.db"))
 
 # Set ITERM2_PYTHON to override, e.g. in ~/.zshrc:
 #   export ITERM2_PYTHON=~/"Library/Application Support/iTerm2/iterm2env-3.10.19/versions/3.14.0/bin/python3.14"

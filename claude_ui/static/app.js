@@ -20,14 +20,14 @@ const settingsBtn = document.getElementById('settings-btn');
 const settingsOverlay = document.getElementById('settings-overlay');
 
 // Theme — dark default, persist to localStorage
-const savedTheme = localStorage.getItem('claude-ui-theme') || 'dark';
+const savedTheme = localStorage.getItem('membridge-theme') || 'dark';
 applyTheme(savedTheme);
 
 themeToggle.addEventListener('click', () => {
   const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   const next = current === 'dark' ? 'light' : 'dark';
   applyTheme(next);
-  localStorage.setItem('claude-ui-theme', next);
+  localStorage.setItem('membridge-theme', next);
 });
 
 function applyTheme(theme) {

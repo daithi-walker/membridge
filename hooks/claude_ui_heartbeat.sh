@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code UserPromptSubmit hook — registers session heartbeat with claude-ui
+# Claude Code UserPromptSubmit hook — registers session heartbeat with membridge
 # Runs in background; never blocks Claude.
 
 set -euo pipefail

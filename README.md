@@ -31,7 +31,7 @@ Claude Code (any session)
 localhost:7842  FastAPI + SQLite   (Docker / OrbStack)
 localhost:7843  Focus server       (host Python — needs osascript)
 
-~/.claude-ui/sessions.db           SQLite DB (persists across rebuilds)
+~/.membridge/sessions.db           SQLite DB (persists across rebuilds)
 ```
 
 ## Requirements
@@ -61,9 +61,9 @@ bash scripts/install.sh
 
 This will:
 - Build the Docker image
-- Create `~/.claude-ui/` for the SQLite DB
+- Create `~/.membridge/` for the SQLite DB
 - Register `UserPromptSubmit`, `PreToolUse`, and `Stop` hooks in `~/.claude/settings.json`
-- Install a launchd service for the focus server (`com.daihi.claude-ui-focus`, port 7843)
+- Install a launchd service for the focus server (`com.daihi.membridge-focus`, port 7843)
 
 ### 3. Start the app
 
@@ -101,8 +101,8 @@ Click any row to open the **side panel** with full details: session ID, cwd, PID
 
 ## Data
 
-- **SQLite DB**: `~/.claude-ui/sessions.db`
-- **Focus server log**: `/tmp/claude-ui-focus.log`
+- **SQLite DB**: `~/.membridge/sessions.db`
+- **Focus server log**: `/tmp/membridge-focus.log`
 
 ## Docs
 

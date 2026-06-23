@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 
-DB_PATH = Path(os.getenv("CLAUDE_UI_DB", Path.home() / ".claude-ui" / "sessions.db"))
+DB_PATH = Path(os.getenv("MEMBRIDGE_DB", Path.home() / ".membridge" / "sessions.db"))
 
 _CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS sessions (

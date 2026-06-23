@@ -46,7 +46,7 @@ scripts/sync_iterm_tabs.py   (run manually after renaming tabs)
   Updates iterm_tab + iterm_session_uuid in DB
 
 
-~/.claude-ui/sessions.db   SQLite, mounted as Docker volume
+~/.membridge/sessions.db   SQLite, mounted as Docker volume
 ```
 
 ## Component responsibilities
@@ -61,10 +61,10 @@ Fires when a Claude session ends. Sends `session_id` and `transcript_path`. The 
 Runs inside Docker. Handles all API routes. On first heartbeat for a session, calls the focus server's `/rename` endpoint via `host.docker.internal:7843` to rename the iTerm tab. Status computation calls `/pid/<pid>` to check liveness — stale sessions with an alive PID are floored to idle.
 
 ### SQLite (`claude_ui/db.py`)
-Two tables: `sessions` and `settings`. Migrations applied on startup via try/except (idempotent). Volume-mounted to `~/.claude-ui/sessions.db` on the host.
+Two tables: `sessions` and `settings`. Migrations applied on startup via try/except (idempotent). Volume-mounted to `~/.membridge/sessions.db` on the host.
 
 ### Focus server (`scripts/focus_server.py`)
-Pure stdlib Python, no deps. Must run on the Mac host (not Docker) because `osascript` only works on macOS. Registered as a launchd service (`com.daihi.claude-ui-focus`). CORS: allows `http://localhost:7842`. Also exposes `/pid/<pid>` for host-side process liveness checks (Docker can't see host PIDs directly).
+Pure stdlib Python, no deps. Must run on the Mac host (not Docker) because `osascript` only works on macOS. Registered as a launchd service (`com.daihi.membridge-focus`). CORS: allows `http://localhost:7842`. Also exposes `/pid/<pid>` for host-side process liveness checks (Docker can't see host PIDs directly).
 
 ### Tab alias sync (`scripts/sync_iterm_tabs.py`)
 Run manually after renaming iTerm2 tabs. Uses the iTerm2 Python API (requires `ITERM2_PYTHON` env var + iTerm2 Python runtime installed) to read `tab.titleOverride` — the user-set alias. Matches sessions by UUID (from `$ITERM_SESSION_ID`) or PID→TTY fallback. Updates `iterm_tab` and `iterm_session_uuid` in the DB.

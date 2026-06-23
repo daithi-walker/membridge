@@ -17,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-DB_PATH = Path(os.getenv("CLAUDE_UI_DB", Path.home() / ".claude-ui" / "sessions.db"))
+DB_PATH = Path(os.getenv("MEMBRIDGE_DB", Path.home() / ".membridge" / "sessions.db"))
 
 
 def get_iterm_sessions() -> list[dict]:

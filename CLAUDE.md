@@ -40,7 +40,7 @@ python3 scripts/focus_server.py &        # iTerm2 focus/rename server (port 7843
 
 The focus server is also registered as a launchd service:
 ```bash
-launchctl load ~/Library/LaunchAgents/com.daihi.claude-ui-focus.plist
+launchctl load ~/Library/LaunchAgents/com.daihi.membridge-focus.plist
 ```
 
 ## Making changes
@@ -64,7 +64,7 @@ Runs on the host, not in Docker. Restart it directly:
 pkill -f focus_server.py
 python3 scripts/focus_server.py &
 # or via launchd:
-launchctl kickstart -k gui/$UID/com.daihi.claude-ui-focus
+launchctl kickstart -k gui/$UID/com.daihi.membridge-focus
 ```
 
 ### Hooks (hooks/*.sh)
@@ -73,12 +73,12 @@ No restart needed — hooks are shell scripts read fresh on each invocation.
 ### DB migrations
 Add a new `ALTER TABLE` statement to `_MIGRATIONS` in `db.py`. Migrations run on Docker startup (idempotent). For the live DB without a rebuild:
 ```bash
-sqlite3 ~/.claude-ui/sessions.db "ALTER TABLE sessions ADD COLUMN new_col TEXT;"
+sqlite3 ~/.membridge/sessions.db "ALTER TABLE sessions ADD COLUMN new_col TEXT;"
 ```
 
 ## Key design decisions
 
-- **Docker for the main app** — keeps Python deps isolated; SQLite volume at `~/.claude-ui/sessions.db`
+- **Docker for the main app** — keeps Python deps isolated; SQLite volume at `~/.membridge/sessions.db`
 - **Host-side focus server** — `osascript` must run on the Mac host, not inside Linux Docker
 - **Hooks fire in background** — `curl --max-time 3 ... &` so Claude is never blocked
 - **Anthropic API** — uses `ANTHROPIC_API_KEY` for auto-summary; optionally Vertex AI via `CLAUDE_CODE_USE_VERTEX=1`
@@ -88,7 +88,7 @@ sqlite3 ~/.claude-ui/sessions.db "ALTER TABLE sessions ADD COLUMN new_col TEXT;"
 
 ## Database
 
-SQLite at `~/.claude-ui/sessions.db` (host volume, survives Docker rebuilds).
+SQLite at `~/.membridge/sessions.db` (host volume, survives Docker rebuilds).
 
 Key columns: `session_id`, `cwd`, `project_name`, `git_branch`, `pid`, `iterm_tab`, `iterm_session_uuid`, `first_seen`, `last_seen`, `prompt_count`, `summary`, `summary_source`, `notes`.
 
@@ -100,7 +100,7 @@ Settings in a separate `settings` table: `active_threshold_secs`, `idle_threshol
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | — | Anthropic API key for auto-summary |
 | `CLAUDE_SUMMARY_MODEL` | `claude-haiku-4-5-20251001` | Model for auto-summary |
-| `CLAUDE_UI_DB` | `~/.claude-ui/sessions.db` | SQLite DB path (inside container: `/data/sessions.db`) |
+| `MEMBRIDGE_DB` | `~/.membridge/sessions.db` | SQLite DB path (inside container: `/data/sessions.db`) |
 | `CLAUDE_CODE_USE_VERTEX` | — | Set to `1` to use Vertex AI instead of Anthropic API |
 | `ANTHROPIC_VERTEX_PROJECT_ID` | — | GCP project ID (Vertex only) |
 | `CLOUD_ML_REGION` | `global` | Vertex AI region (Vertex only) |

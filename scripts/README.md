@@ -45,4 +45,4 @@ python scripts/backfill.py --min-turns 5
 These will be filled in naturally as you resume and use sessions.
 
 **Env vars:**
-- `CLAUDE_UI_DB` — path to SQLite DB (default: `~/.claude-ui/sessions.db`)
+- `MEMBRIDGE_DB` — path to SQLite DB (default: `~/.membridge/sessions.db`)

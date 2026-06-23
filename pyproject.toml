@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "claude-ui"
+name = "membridge"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-claude-ui = "claude_ui.server:main"
+membridge = "claude_ui.server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

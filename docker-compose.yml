@@ -1,17 +1,17 @@
 services:
-  claude-ui:
+  membridge:
     build: .
-    image: claude-ui:latest
-    container_name: claude-ui
+    image: membridge:latest
+    container_name: membridge
     restart: unless-stopped
     ports:
       - "127.0.0.1:7842:7842"
     volumes:
-      - "${HOME}/.claude-ui:/data"
+      - "${HOME}/.membridge:/data"
       - "${HOME}/.claude/projects:${HOME}/.claude/projects:ro"
       - "${HOME}/.config/gcloud:/root/.config/gcloud:ro"
     environment:
-      CLAUDE_UI_DB: /data/sessions.db
+      MEMBRIDGE_DB: /data/sessions.db
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CLAUDE_SUMMARY_MODEL: ${CLAUDE_SUMMARY_MODEL:-}
       # Vertex (optional — set CLAUDE_CODE_USE_VERTEX=1 to use instead)

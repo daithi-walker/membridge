@@ -44,7 +44,7 @@ On session stop, the `Stop` hook fires and MemBridge calls Claude Haiku (via Ver
 
 ## Alternative (Option B — Claude-from-context via `/summarize` skill)
 
-A Claude Code skill (`/summarize`) that runs inside the active session. Claude writes a structured summary file to a known location (`~/.claude-ui/summaries/<session_id>/YYYY-MM-DD.md`) and POSTs it to the MemBridge API. MemBridge reads from the summaries directory rather than parsing JSONL.
+A Claude Code skill (`/summarize`) that runs inside the active session. Claude writes a structured summary file to a known location (`~/.membridge/summaries/<session_id>/YYYY-MM-DD.md`) and POSTs it to the MemBridge API. MemBridge reads from the summaries directory rather than parsing JSONL.
 
 ```
 ## Summary
@@ -98,6 +98,6 @@ Option C is the target state. The key open questions before moving are:
 ## Consequences
 
 - Option A remains in place until Option C is designed and the skill is built
-- New `~/.claude-ui/summaries/` directory layout should be designed before implementing Option C to avoid a migration later
+- New `~/.membridge/summaries/` directory layout should be designed before implementing Option C to avoid a migration later
 - The `summary_source` column (`auto` / `user`) should be extended to include `skill` when Option C is added
 - "Next steps" as a concept is deliberately deferred — free-text notes field in the dashboard is the interim solution

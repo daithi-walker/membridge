@@ -19,7 +19,7 @@ Static files are currently baked into the image — every frontend change requir
 
 ```yaml
 volumes:
-  - "${HOME}/.claude-ui:/data"
+  - "${HOME}/.membridge:/data"
   - "./claude_ui/static:/app/claude_ui/static"
 ```
 
@@ -39,7 +39,7 @@ When Claude is generating a response, highlight the session differently in the d
 
 ### Offline hook queue
 If the app is down when a hook fires, the heartbeat is silently dropped.
-- Hooks write to `~/.claude-ui/queue/` on disk as JSON files when the POST fails
+- Hooks write to `~/.membridge/queue/` on disk as JSON files when the POST fails
 - A background thread in the server drains the queue on startup
 
 ---
