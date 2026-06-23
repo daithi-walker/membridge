@@ -278,14 +278,19 @@
       border-color: #E4A636; color: #E4A636;
     }
     .btn-focus-row-resume:hover { background: rgba(228,166,54,0.12); }
+    .btn-focus-row-working {
+      border-color: #E4A636; color: #E4A636;
+      animation: pulse-awaiting 1.2s ease-in-out infinite;
+    }
+    .btn-focus-row-working:hover { background: rgba(228,166,54,0.12); }
     .btn-focus-row-awaiting {
-      border-color: #4eaaff; color: #4eaaff;
+      border-color: #4caf50; color: #4caf50;
       animation: pulse-awaiting 2s ease-in-out infinite;
     }
-    .btn-focus-row-awaiting:hover { background: rgba(78,170,255,0.12); }
+    .btn-focus-row-awaiting:hover { background: rgba(76,175,80,0.12); }
     @keyframes pulse-awaiting {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+      50% { opacity: 0.45; }
     }
 
     #sessions-table { table-layout: fixed; }
@@ -761,7 +766,7 @@
     </div>
     <div id="awaiting-badge" style="display:none;position:relative;margin-left:auto">
       <span id="awaiting-count" style="
-        background:#4eaaff;color:#000;border-radius:99px;
+        background:#4caf50;color:#000;border-radius:99px;
         font-size:11px;font-weight:700;padding:2px 7px;
         animation:pulse-awaiting 2s ease-in-out infinite;
         cursor:default;

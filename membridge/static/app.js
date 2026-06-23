@@ -341,13 +341,31 @@ function buildRow(s) {
   });
   statusTd.appendChild(starBtn);
 
-  // Focus button
+  // Focus button — state machine:
+  //   awaiting_input → green ◉ (wants your response)
+  //   active + working → orange ◉ (Claude is processing)
+  //   stale → amber ↩ (needs resume)
+  //   idle → grey ⌘
   const focusRowBtn = document.createElement('button');
-  const _isResume = s.status === 'stale';
-  const _isAwaiting = s.awaiting_input && !_isResume;
-  focusRowBtn.className = 'btn-focus-row' + (_isResume ? ' btn-focus-row-resume' : '') + (_isAwaiting ? ' btn-focus-row-awaiting' : '');
-  focusRowBtn.title = _isResume ? 'Resume session' : (_isAwaiting ? 'Awaiting your input' : 'Focus tab');
-  focusRowBtn.textContent = _isResume ? '↩' : (_isAwaiting ? '◉' : '⌘');
+  let _focusCls = 'btn-focus-row';
+  let _focusIcon = '⌘';
+  let _focusTitle = 'Focus tab';
+  if (s.awaiting_input) {
+    _focusCls += ' btn-focus-row-awaiting';
+    _focusIcon = '◉';
+    _focusTitle = 'Awaiting your input';
+  } else if (s.status === 'stale') {
+    _focusCls += ' btn-focus-row-resume';
+    _focusIcon = '↩';
+    _focusTitle = 'Resume session';
+  } else if (s.status === 'active') {
+    _focusCls += ' btn-focus-row-working';
+    _focusIcon = '◉';
+    _focusTitle = 'Claude is working…';
+  }
+  focusRowBtn.className = _focusCls;
+  focusRowBtn.title = _focusTitle;
+  focusRowBtn.textContent = _focusIcon;
   focusRowBtn.addEventListener('click', async e => {
     e.stopPropagation();
     focusRowBtn.textContent = '…';
