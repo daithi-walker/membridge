@@ -14,8 +14,9 @@ claude_ui/          FastAPI app (Python)
     app.js          Dashboard JS (vanilla, no build step)
 
 hooks/
-  claude_ui_heartbeat.sh   UserPromptSubmit hook — POST /api/heartbeat
-  claude_ui_stop.sh        Stop hook — POST /api/stop
+  claude_ui_heartbeat.sh   UserPromptSubmit hook — POST /api/heartbeat (increments prompt_count)
+  claude_ui_tool_use.sh    PreToolUse hook — POST /api/touch (updates last_seen, keeps session active during long responses)
+  claude_ui_stop.sh        Stop hook — POST /api/stop (triggers auto-summary)
 
 scripts/
   focus_server.py      Host-side HTTP server (port 7843) for iTerm2 tab focus/rename/PID check

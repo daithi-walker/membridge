@@ -37,14 +37,15 @@ echo ""
 echo "==> Registering hooks in $SETTINGS_FILE..."
 
 HEARTBEAT_HOOK="$HOOKS_DIR/claude_ui_heartbeat.sh"
+TOOL_USE_HOOK="$HOOKS_DIR/claude_ui_tool_use.sh"
 STOP_HOOK="$HOOKS_DIR/claude_ui_stop.sh"
 
 [ -f "$SETTINGS_FILE" ] || echo '{}' > "$SETTINGS_FILE"
 
-python3 - "$SETTINGS_FILE" "$HEARTBEAT_HOOK" "$STOP_HOOK" << 'PYEOF'
+python3 - "$SETTINGS_FILE" "$HEARTBEAT_HOOK" "$TOOL_USE_HOOK" "$STOP_HOOK" << 'PYEOF'
 import json, sys
 
-settings_path, heartbeat_hook, stop_hook = sys.argv[1], sys.argv[2], sys.argv[3]
+settings_path, heartbeat_hook, tool_use_hook, stop_hook = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
 with open(settings_path) as f:
     settings = json.load(f)
@@ -64,6 +65,7 @@ def register(event, command):
         print(f"  {event} hook already registered")
 
 register("UserPromptSubmit", heartbeat_hook)
+register("PreToolUse", tool_use_hook)
 register("Stop", stop_hook)
 
 with open(settings_path, "w") as f:

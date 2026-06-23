@@ -10,17 +10,26 @@ Claude Code (any session, any project)
 │   - Captures session_id, cwd, git branch, iTerm tab name, PID,      │
 │     ITERM_SESSION_ID UUID                                             │
 │   - Background POST → localhost:7842/api/heartbeat                   │
+│                                                                      │
+├── PreToolUse hook ────────────────────────────────────────────────────┤
+│   hooks/claude_ui_tool_use.sh                                         │
+│   - Background POST → localhost:7842/api/touch                        │
+│   - Fires before every tool call — keeps last_seen current during     │
+│     long Claude responses (prevents idle drift while working)         │
 │                                                                      ▼
 └── Stop hook ─────────────────────────── localhost:7842 (Docker)
     hooks/claude_ui_stop.sh               FastAPI + SQLite
     - Posts session_id, transcript_path │
-                                        ├── /api/heartbeat  → db.upsert_heartbeat()
-                                        ├── /api/stop       → db.record_stop()
-                                        │                      + async summarise()
-                                        ├── /api/sessions   → db.list_sessions()
-                                        │                      + PID liveness check
-                                        ├── /api/sessions/{id} PATCH → summary/notes
-                                        └── /api/settings   GET/PATCH
+                                        ├── /api/heartbeat         → db.upsert_heartbeat()
+                                        ├── /api/touch             → db.touch_session()
+                                        ├── /api/stop              → db.record_stop()
+                                        │                             + async summarise()
+                                        ├── /api/sessions          → db.list_sessions()
+                                        │                             + PID liveness check
+                                        ├── /api/sessions/{id}     PATCH → summary/notes
+                                        ├── /api/sessions/{id}/summarise POST → re-summarise
+                                        ├── /api/sessions/{id}     DELETE → remove session
+                                        └── /api/settings          GET/PATCH
 
 
 localhost:7843 (host Python — needs osascript + macOS window server)

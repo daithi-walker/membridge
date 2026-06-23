@@ -24,8 +24,9 @@ When you have many Claude Code sessions running across iTerm tabs, you lose trac
 
 ```
 Claude Code (any session)
-  UserPromptSubmit hook  →  POST localhost:7842/api/heartbeat
-  Stop hook              →  POST localhost:7842/api/stop
+  UserPromptSubmit hook  →  POST localhost:7842/api/heartbeat  (registers prompt, increments count)
+  PreToolUse hook        →  POST localhost:7842/api/touch       (keeps session active during long responses)
+  Stop hook              →  POST localhost:7842/api/stop        (triggers auto-summary)
 
 localhost:7842  FastAPI + SQLite   (Docker / OrbStack)
 localhost:7843  Focus server       (host Python — needs osascript)
@@ -61,7 +62,7 @@ bash scripts/install.sh
 This will:
 - Build the Docker image
 - Create `~/.claude-ui/` for the SQLite DB
-- Register `UserPromptSubmit` and `Stop` hooks in `~/.claude/settings.json`
+- Register `UserPromptSubmit`, `PreToolUse`, and `Stop` hooks in `~/.claude/settings.json`
 - Install a launchd service for the focus server (`com.daihi.claude-ui-focus`, port 7843)
 
 ### 3. Start the app
