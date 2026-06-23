@@ -115,7 +115,28 @@ async def stop(payload: StopPayload) -> dict:
     db.record_stop(payload.session_id, payload.stop_reason)
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
+    _notify_stop(payload.session_id)
     return {"ok": True}
+
+
+def _notify_stop(session_id: str) -> None:
+    try:
+        session = db.get_session(session_id)
+        if not session:
+            return
+        project = session.get("project_name") or "Claude"
+        description = session.get("description") or ""
+        # Trim bracketed description prefix e.g. "[Fixing auth bug]" → "Fixing auth bug"
+        subtitle = description.strip("[] \n").split("\n")[0][:80] if description else "Awaiting input"
+        script = (
+            f'display notification "{subtitle}" '
+            f'with title "MemBridge — {project}" '
+            f'sound name "Ping"'
+        )
+        import subprocess
+        subprocess.Popen(["osascript", "-e", script], close_fds=True)
+    except Exception as e:
+        logger.debug("Notification skipped: %s", e)
 
 
 _SUMMARIES_ROOT = Path(os.getenv("MEMBRIDGE_DB", "/data/sessions.db")).parent / "summaries"
