@@ -93,7 +93,7 @@ tell application "iTerm2"
         tell newTab
             repeat with s in sessions
                 set name of s to "{tab_name}"
-                tell s to write text "cd {cwd} && {claude_bin} --resume {session_id}"
+                tell s to write text "{claude_bin} --resume {session_id}"
             end repeat
         end tell
     end tell
