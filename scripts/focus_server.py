@@ -70,7 +70,7 @@ _OPEN_TAB_SCRIPT = """
 tell application "iTerm2"
     activate
     tell current window
-        set newTab to (create tab with default profile command "bash -c 'cd {cwd} && {claude_bin} --resume {session_id}'")
+        set newTab to (create tab with default profile command "bash -l -c 'cd {cwd} && {claude_bin} --resume {session_id}'")
         tell newTab
             repeat with s in sessions
                 set name of s to "{tab_name}"
