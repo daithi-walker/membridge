@@ -89,10 +89,11 @@ _OPEN_TAB_SCRIPT = """
 tell application "iTerm2"
     activate
     tell current window
-        set newTab to (create tab with default profile command "bash -l -c 'cd {cwd} && {claude_bin} --resume {session_id}'")
+        set newTab to (create tab with default profile)
         tell newTab
             repeat with s in sessions
                 set name of s to "{tab_name}"
+                tell s to write text "cd {cwd} && {claude_bin} --resume {session_id}"
             end repeat
         end tell
     end tell
