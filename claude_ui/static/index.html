@@ -707,12 +707,21 @@
   </div>
 
   <div id="controls">
-    <label>
-      <input type="checkbox" id="show-stale"> Show stale
-    </label>
-    <label>
-      <input type="checkbox" id="show-archived"> Show archived
-    </label>
+    <div id="show-filter-wrap" style="position:relative">
+      <button id="show-filter-btn" class="filter-btn">Show ▾</button>
+      <div id="show-filter-dropdown" class="filter-dropdown" style="display:none">
+        <div class="filter-dropdown-actions">
+          <button id="show-select-all">All</button>
+          <button id="show-select-none">None</button>
+        </div>
+        <div id="show-checkboxes">
+          <label class="proj-check-label"><input type="checkbox" value="active"> Active</label>
+          <label class="proj-check-label"><input type="checkbox" value="idle"> Idle</label>
+          <label class="proj-check-label"><input type="checkbox" value="stale"> Stale</label>
+          <label class="proj-check-label"><input type="checkbox" value="archived"> Archived</label>
+        </div>
+      </div>
+    </div>
     <div id="project-filter-wrap">
       <button id="project-filter-btn" class="filter-btn">Projects ▾</button>
       <div id="project-filter-dropdown" class="filter-dropdown" style="display:none">

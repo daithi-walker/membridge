@@ -1,8 +1,8 @@
 let REFRESH_MS = 30_000;
 let refreshTimer = null;
 let sessions = [];
-let showStale = false;
-let showArchived = false;
+// showFilter: which session types are visible. Default: active + idle (not stale, not archived)
+let showFilter = new Set(['active', 'idle']);
 let projectFilter = new Set(); // empty = all projects
 let activePanel = null;
 
@@ -12,12 +12,7 @@ const emptyState = document.getElementById('empty-state');
 const summaryCount = document.getElementById('summary-count');
 const indicator = document.getElementById('refresh-btn');
 indicator.addEventListener('click', syncAndRefresh);
-const showStaleCheckbox = document.getElementById('show-stale');
-const showArchivedCheckbox = document.getElementById('show-archived');
 const themeToggle = document.getElementById('theme-toggle');
-const projFilterBtn = document.getElementById('project-filter-btn');
-const projFilterDropdown = document.getElementById('project-filter-dropdown');
-const projCheckboxes = document.getElementById('proj-checkboxes');
 const panelOverlay = document.getElementById('panel-overlay');
 const panel = document.getElementById('side-panel');
 const panelClose = document.getElementById('panel-close');
@@ -47,29 +42,71 @@ function applyTheme(theme) {
   }
 }
 
+// Migrate old per-checkbox keys
+localStorage.removeItem('mb-show-stale');
+localStorage.removeItem('mb-show-archived');
+
 // Restore persisted filter state
-showStale = localStorage.getItem('mb-show-stale') === 'true';
-showStaleCheckbox.checked = showStale;
-showArchived = localStorage.getItem('mb-show-archived') === 'true';
-showArchivedCheckbox.checked = showArchived;
+try {
+  const stored = JSON.parse(localStorage.getItem('mb-show-filter') || '["active","idle"]');
+  showFilter = new Set(stored);
+} catch (_) { showFilter = new Set(['active', 'idle']); }
 try {
   const stored = JSON.parse(localStorage.getItem('mb-project-filter') || '[]');
   projectFilter = new Set(stored);
 } catch (_) { projectFilter = new Set(); }
 
-showStaleCheckbox.addEventListener('change', () => {
-  showStale = showStaleCheckbox.checked;
-  localStorage.setItem('mb-show-stale', showStale);
-  render(sessions);
+// Show filter dropdown
+const showFilterBtn = document.getElementById('show-filter-btn');
+const showFilterDropdown = document.getElementById('show-filter-dropdown');
+const showCheckboxes = document.getElementById('show-checkboxes');
+
+// Sync checkbox state from showFilter
+function syncShowCheckboxes() {
+  showCheckboxes.querySelectorAll('input').forEach(cb => {
+    cb.checked = showFilter.has(cb.value);
+  });
+  const isNonDefault = !(showFilter.has('active') && showFilter.has('idle') &&
+    !showFilter.has('stale') && !showFilter.has('archived'));
+  showFilterBtn.classList.toggle('active', isNonDefault);
+}
+syncShowCheckboxes();
+
+showFilterBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  const open = showFilterDropdown.style.display !== 'none';
+  showFilterDropdown.style.display = open ? 'none' : 'block';
+});
+showFilterDropdown.addEventListener('click', e => e.stopPropagation());
+
+showCheckboxes.querySelectorAll('input').forEach(cb => {
+  cb.addEventListener('change', () => {
+    showFilter = new Set(
+      [...showCheckboxes.querySelectorAll('input')].filter(c => c.checked).map(c => c.value)
+    );
+    localStorage.setItem('mb-show-filter', JSON.stringify([...showFilter]));
+    syncShowCheckboxes();
+    render(sessions);
+  });
 });
 
-showArchivedCheckbox.addEventListener('change', () => {
-  showArchived = showArchivedCheckbox.checked;
-  localStorage.setItem('mb-show-archived', showArchived);
+document.getElementById('show-select-all').addEventListener('click', () => {
+  showFilter = new Set(['active', 'idle', 'stale', 'archived']);
+  localStorage.setItem('mb-show-filter', JSON.stringify([...showFilter]));
+  syncShowCheckboxes();
+  render(sessions);
+});
+document.getElementById('show-select-none').addEventListener('click', () => {
+  showFilter = new Set();
+  localStorage.setItem('mb-show-filter', JSON.stringify([]));
+  syncShowCheckboxes();
   render(sessions);
 });
 
 // Project filter dropdown
+const projFilterBtn = document.getElementById('project-filter-btn');
+const projFilterDropdown = document.getElementById('project-filter-dropdown');
+const projCheckboxes = document.getElementById('proj-checkboxes');
 projFilterBtn.addEventListener('click', e => {
   e.stopPropagation();
   const open = projFilterDropdown.style.display !== 'none';
@@ -229,8 +266,10 @@ function updateProjectFilter(all) {
 }
 
 function render(all) {
-  let visible = showStale ? all : all.filter(s => s.status !== 'stale');
-  if (!showArchived) visible = visible.filter(s => !s.archived);
+  let visible = all.filter(s => {
+    if (s.archived) return showFilter.has('archived');
+    return showFilter.has(s.status);
+  });
   if (projectFilter.has('__none__')) {
     visible = [];
   } else if (projectFilter.size > 0) {
