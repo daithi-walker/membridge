@@ -37,6 +37,16 @@ docs/
   adr/              Architecture Decision Records (001–009)
 ```
 
+## After pulling new code
+
+Always check `docs/RELEASES.md` for migration steps before running. If a release section exists for commits you just pulled, follow it before doing anything else — it may require re-running `install.sh` or manual DB changes.
+
+Quick check:
+```bash
+git log --oneline origin/main..HEAD   # what you're about to pull
+git diff HEAD..origin/main -- docs/RELEASES.md   # any new release sections
+```
+
 ## Running locally
 
 ```bash
