@@ -97,3 +97,8 @@ Run `sync_iterm_tabs.py` periodically (e.g. every 5 min via launchd) so tab alia
 - ✅ Re-summarise endpoint
 - ✅ Vertex AI ADC mount in Docker
 - ✅ Rename claude-ui → membridge
+- ✅ Multi-select project filter with All/None buttons (fixed inversion bug)
+- ✅ Archive session feature (toggle via modal button or /membridge-archive command)
+- ✅ /membridge-archive slash command (toggles archive via PATCH API)
+- ✅ /membridge-recall slash command (list recent sessions or dump summaries by prefix)
+- ✅ /membridge-summarize delta awareness (fetches prior summaries, only covers new work)
