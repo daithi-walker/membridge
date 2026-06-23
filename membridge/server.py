@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import db
+from . import db, focus as _focus
 from .summariser import summarise
 
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +62,19 @@ class SettingsPatch(BaseModel):
     refresh_interval_secs: int | None = None
 
 
+class FocusPayload(BaseModel):
+    session_id: str
+    pid: int | None = None
+    cwd: str | None = None
+    iterm_session_uuid: str | None = None
+    tab_name: str | None = None
+
+
+class RenamePayload(BaseModel):
+    old_name: str
+    new_name: str
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
@@ -84,17 +97,8 @@ def heartbeat(payload: HeartbeatPayload) -> dict:
 
 
 def _rename_iterm_tab(old_name: str, new_name: str) -> None:
-    import urllib.request
-    import json as _json
     try:
-        body = _json.dumps({"old_name": old_name, "new_name": new_name}).encode()
-        req = urllib.request.Request(
-            "http://host.docker.internal:7843/rename",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        urllib.request.urlopen(req, timeout=2)
+        _focus.rename_tab(old_name, new_name)
     except Exception as e:
         logger.debug("Tab rename skipped: %s", e)
 
@@ -152,12 +156,7 @@ def _ingest_summary_files() -> None:
 
 
 def _find_transcript(session_id: str) -> str | None:
-    import os
-    # CLAUDE_PROJECTS_ROOT must be set to the host path that was volume-mounted.
-    # Path.home() inside Docker is /root, not the Mac user home.
-    projects_root = os.getenv("CLAUDE_PROJECTS_ROOT")
-    if not projects_root:
-        return None
+    projects_root = os.getenv("CLAUDE_PROJECTS_ROOT") or str(Path.home() / ".claude" / "projects")
     for path in Path(projects_root).rglob(f"{session_id}.jsonl"):
         return str(path)
     return None
@@ -207,15 +206,57 @@ def sessions() -> list[dict]:
 
 
 def _pid_alive(pid: int) -> bool:
-    import urllib.request
     try:
-        resp = urllib.request.urlopen(
-            f"http://host.docker.internal:7843/pid/{pid}", timeout=1
-        )
-        data = json.loads(resp.read())
-        return bool(data.get("alive"))
+        return _focus.pid_alive(pid)
     except Exception:
         return False
+
+
+@app.post("/focus")
+def focus(payload: FocusPayload) -> dict:
+    if not payload.session_id:
+        raise HTTPException(status_code=400, detail="session_id required")
+    action = _focus.focus_session(
+        session_id=payload.session_id,
+        iterm_uuid=payload.iterm_session_uuid,
+        pid=payload.pid,
+        cwd=payload.cwd,
+        tab_name=payload.tab_name,
+    )
+    return {"ok": True, "action": action}
+
+
+@app.post("/rename")
+def rename(payload: RenamePayload) -> dict:
+    if not payload.old_name or not payload.new_name:
+        raise HTTPException(status_code=400, detail="old_name and new_name required")
+    action = _focus.rename_tab(payload.old_name, payload.new_name)
+    return {"ok": True, "action": action}
+
+
+@app.get("/sessions")
+def list_iterm_sessions() -> dict:
+    names = _focus.list_sessions()
+    return {"sessions": names, "count": len(names)}
+
+
+@app.get("/pid/{pid}")
+def check_pid(pid: int) -> dict:
+    return {"alive": _focus.pid_alive(pid)}
+
+
+@app.post("/sync-tabs")
+def sync_tabs() -> dict:
+    import threading
+    import sys
+    import subprocess as _sp
+    _sync = os.path.join(os.path.dirname(__file__), "..", "scripts", "sync_iterm_tabs.py")
+
+    def _run():
+        _sp.run([sys.executable, _sync], capture_output=True, timeout=60)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"ok": True, "status": "started", "eta_secs": 35}
 
 
 @app.get("/api/sessions/{session_id}/summaries")

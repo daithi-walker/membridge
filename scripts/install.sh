@@ -1,13 +1,15 @@
 #!/bin/bash
-# MemBridge install script
-# - Builds the Docker image
-# - Registers Claude Code hooks in ~/.claude/settings.json
-# - Installs a launchd plist for the focus server (port 7843)
+# MemBridge install script — native host process, no Docker.
+#
+# What this does:
+#   - Creates a uv venv and installs the package
+#   - Registers Claude Code hooks in ~/.claude/settings.json
+#   - Installs a single launchd plist (com.daihi.membridge) on port 7842
+#   - Stops the Docker container and removes the old focus-server plist if present
 #
 # Prerequisites:
-#   - Docker / OrbStack installed and running
-#   - Python 3.11+ on PATH
-#   - .env file with VERTEX_PROJECT_ID set (copy .env.example)
+#   - uv installed (https://docs.astral.sh/uv/)
+#   - .env file with ANTHROPIC_API_KEY set (copy .env.example)
 
 set -euo pipefail
 
@@ -15,37 +17,53 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 HOOKS_DIR="$PROJECT_DIR/hooks"
 SETTINGS_FILE="$HOME/.claude/settings.json"
+
 PLIST_LABEL="com.daihi.membridge"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
-DOCKER_BIN="$(command -v docker)"
+OLD_FOCUS_PLIST="$HOME/Library/LaunchAgents/com.daihi.membridge-focus.plist"
 
-echo "==> MemBridge installer"
+echo "==> MemBridge installer (native)"
 echo "    Project: $PROJECT_DIR"
 
-# ── 1. Build Docker image ─────────────────────────────────────────────────────
+# ── 1. Stop old services ──────────────────────────────────────────────────────
 echo ""
-echo "==> Building Docker image..."
-"$DOCKER_BIN" compose -f "$PROJECT_DIR/docker-compose.yml" build
-echo "    Image built: membridge:latest"
+echo "==> Stopping old services..."
+# Stop Docker container if running
+if command -v docker &>/dev/null; then
+  docker compose -f "$PROJECT_DIR/docker-compose.yml" down 2>/dev/null || true
+fi
+# Remove old focus server plist
+if [ -f "$OLD_FOCUS_PLIST" ]; then
+  launchctl unload "$OLD_FOCUS_PLIST" 2>/dev/null || true
+  rm -f "$OLD_FOCUS_PLIST"
+  echo "    Removed old focus plist"
+fi
 
-# ── 2. Create data directory ──────────────────────────────────────────────────
+# ── 2. Create venv + install ──────────────────────────────────────────────────
+echo ""
+echo "==> Installing Python package..."
+cd "$PROJECT_DIR"
+uv venv --python 3.12 --clear .venv
+uv pip install --python .venv/bin/python --no-cache .
+echo "    Installed: $PROJECT_DIR/.venv"
+
+# ── 3. Data directory ─────────────────────────────────────────────────────────
 mkdir -p "$HOME/.membridge"
 echo "    Data dir: $HOME/.membridge"
 
-# ── 2b. Install Claude Code slash commands ────────────────────────────────────
+# ── 4. Claude Code slash commands ─────────────────────────────────────────────
 echo ""
 echo "==> Installing Claude Code commands..."
 mkdir -p "$HOME/.claude/commands"
-cp "$PROJECT_DIR/commands/membridge-summarize.md" "$HOME/.claude/commands/membridge-summarize.md"
-cp "$PROJECT_DIR/commands/membridge-archive.md" "$HOME/.claude/commands/membridge-archive.md"
-cp "$PROJECT_DIR/commands/membridge-context.md" "$HOME/.claude/commands/membridge-context.md"
+for cmd in membridge-summarize membridge-archive membridge-context; do
+  if [ -f "$PROJECT_DIR/commands/$cmd.md" ]; then
+    cp "$PROJECT_DIR/commands/$cmd.md" "$HOME/.claude/commands/$cmd.md"
+    echo "    /$cmd → ~/.claude/commands/$cmd.md"
+  fi
+done
 rm -f "$HOME/.claude/commands/summarize.md"
-rm -f "$HOME/.claude/commands/membridge-recall.md"
-echo "    /membridge-summarize → ~/.claude/commands/membridge-summarize.md"
-echo "    /membridge-archive   → ~/.claude/commands/membridge-archive.md"
-echo "    /membridge-context   → ~/.claude/commands/membridge-context.md (replaces /membridge-recall)"
 
-# ── 3. Register hooks in ~/.claude/settings.json ──────────────────────────────
+# ── 5. Register hooks ─────────────────────────────────────────────────────────
 echo ""
 echo "==> Registering hooks in $SETTINGS_FILE..."
 
@@ -57,14 +75,10 @@ STOP_HOOK="$HOOKS_DIR/claude_ui_stop.sh"
 
 python3 - "$SETTINGS_FILE" "$HEARTBEAT_HOOK" "$TOOL_USE_HOOK" "$STOP_HOOK" << 'PYEOF'
 import json, sys
-
 settings_path, heartbeat_hook, tool_use_hook, stop_hook = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-
 with open(settings_path) as f:
     settings = json.load(f)
-
 hooks = settings.setdefault("hooks", {})
-
 def register(event, command):
     event_hooks = hooks.setdefault(event, [])
     already = any(
@@ -76,25 +90,19 @@ def register(event, command):
         print(f"  Added {event} hook: {command}")
     else:
         print(f"  {event} hook already registered")
-
 register("UserPromptSubmit", heartbeat_hook)
 register("PreToolUse", tool_use_hook)
 register("Stop", stop_hook)
-
 with open(settings_path, "w") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
 PYEOF
 
-PYTHON_BIN="$(command -v python3)"
-
-# ── 4. Install launchd plists ─────────────────────────────────────────────────
+# ── 6. launchd plist ──────────────────────────────────────────────────────────
 echo ""
-echo "==> Installing launchd services..."
-
+echo "==> Installing launchd service..."
 mkdir -p "$HOME/Library/LaunchAgents"
 
-# 4a. Main app (Docker)
 cat > "$PLIST_PATH" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -104,11 +112,7 @@ cat > "$PLIST_PATH" << PLIST
   <string>${PLIST_LABEL}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${DOCKER_BIN}</string>
-    <string>compose</string>
-    <string>-f</string>
-    <string>${PROJECT_DIR}/docker-compose.yml</string>
-    <string>up</string>
+    <string>${PROJECT_DIR}/scripts/run.sh</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -123,7 +127,7 @@ cat > "$PLIST_PATH" << PLIST
     <key>HOME</key>
     <string>${HOME}</string>
     <key>PATH</key>
-    <string>/usr/local/bin:/usr/bin:/bin</string>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
   </dict>
 </dict>
 </plist>
@@ -133,68 +137,12 @@ launchctl unload "$PLIST_PATH" 2>/dev/null || true
 launchctl load "$PLIST_PATH"
 echo "    Loaded: $PLIST_LABEL (port 7842)"
 
-# 4b. Focus server (host Python — needs osascript access to iTerm2)
-FOCUS_PLIST_LABEL="com.daihi.membridge-focus"
-FOCUS_PLIST_PATH="$HOME/Library/LaunchAgents/${FOCUS_PLIST_LABEL}.plist"
-
-# Detect iTerm2 bundled Python for sync-tabs (titleOverride API)
-ITERM2_PYTHON_BIN=""
-for candidate in "$HOME/Library/Application Support/iTerm2"/iterm2env-*/versions/3.14.0/bin/python3.14; do
-  if [ -x "$candidate" ] && "$candidate" -c "import iterm2" 2>/dev/null; then
-    ITERM2_PYTHON_BIN="$candidate"
-    break
-  fi
-done
-
-if [ -n "$ITERM2_PYTHON_BIN" ]; then
-  echo "    iTerm2 Python: $ITERM2_PYTHON_BIN"
-  ITERM2_ENV_BLOCK="  <key>EnvironmentVariables</key>
-  <dict>
-    <key>ITERM2_PYTHON</key>
-    <string>${ITERM2_PYTHON_BIN}</string>
-  </dict>"
-else
-  echo "    iTerm2 Python runtime not found — tab alias sync will use osascript fallback"
-  ITERM2_ENV_BLOCK=""
-fi
-
-cat > "$FOCUS_PLIST_PATH" << PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>${FOCUS_PLIST_LABEL}</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>${PYTHON_BIN}</string>
-    <string>${PROJECT_DIR}/scripts/focus_server.py</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardOutPath</key>
-  <string>/tmp/membridge-focus.log</string>
-  <key>StandardErrorPath</key>
-  <string>/tmp/membridge-focus.log</string>
-${ITERM2_ENV_BLOCK}
-</dict>
-</plist>
-PLIST
-
-launchctl unload "$FOCUS_PLIST_PATH" 2>/dev/null || true
-launchctl load "$FOCUS_PLIST_PATH"
-echo "    Loaded: $FOCUS_PLIST_LABEL (port 7843)"
-
-# ── 5. Done ───────────────────────────────────────────────────────────────────
+# ── 7. Done ───────────────────────────────────────────────────────────────────
 echo ""
 echo "==> All done!"
 echo ""
-echo "    Dashboard:   http://localhost:7842"
-echo "    App logs:    tail -f /tmp/membridge.log"
-echo "    Focus logs:  tail -f /tmp/membridge-focus.log"
-echo "    DB:          ~/.membridge/sessions.db"
-echo "    Commands:    /summarize (in any Claude Code session)"
+echo "    Dashboard:  http://localhost:7842"
+echo "    Logs:       tail -f /tmp/membridge.log"
+echo "    DB:         ~/.membridge/sessions.db"
 echo ""
 echo "    Hooks registered — restart Claude Code to pick them up."

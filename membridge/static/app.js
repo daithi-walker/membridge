@@ -199,7 +199,7 @@ async function syncAndRefresh() {
   indicator.classList.add('spinning');
   indicator.title = 'Syncing tab names…';
   try {
-    await fetch('http://localhost:7843/sync-tabs', { method: 'POST' });
+    await fetch('http://localhost:7842/sync-tabs', { method: 'POST' });
   } catch (_) {}
   // iTerm2 API takes ~30s; poll every 5s for up to 40s then give up
   let waited = 0;
@@ -381,7 +381,7 @@ function openPanel(s, scrollIntoView) {
   focusBtn.onclick = async () => {
     focusBtn.textContent = '…';
     try {
-      const res = await fetch('http://localhost:7843/focus', {
+      const res = await fetch('http://localhost:7842/focus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null, cwd: s.cwd || null, tab_name: s.iterm_tab || null, iterm_session_uuid: s.iterm_session_uuid || null }),
@@ -713,43 +713,50 @@ function formatDateTime(isoStr) {
 // ── Column resize ─────────────────────────────────────────────────────────────
 
 const COL_WIDTHS_KEY = 'membridge_col_widths';
+let colWidths = {};
 
 function loadColWidths() {
   try { return JSON.parse(localStorage.getItem(COL_WIDTHS_KEY) || '{}'); } catch { return {}; }
 }
 
-function saveColWidths(widths) {
-  localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(widths));
+function saveColWidths() {
+  localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(colWidths));
 }
 
 function applyColWidths() {
-  const widths = loadColWidths();
-  for (const [col, w] of Object.entries(widths)) {
-    document.querySelectorAll(`.${col}`).forEach(el => { el.style.width = w + 'px'; });
+  for (const [col, w] of Object.entries(colWidths)) {
+    document.querySelectorAll(`th.${col}`).forEach(el => { el.style.width = w + 'px'; });
   }
 }
 
 function initColResize() {
+  // Snapshot all default widths from DOM first, then overlay saved values
+  document.querySelectorAll('.col-resize-handle').forEach(handle => {
+    const col = handle.dataset.col;
+    const th = handle.closest('th');
+    colWidths[col] = th.getBoundingClientRect().width;
+  });
+  Object.assign(colWidths, loadColWidths());
   applyColWidths();
+
   document.querySelectorAll('.col-resize-handle').forEach(handle => {
     handle.addEventListener('mousedown', e => {
       e.preventDefault();
       const col = handle.dataset.col;
-      const th = handle.closest('th');
+      // Always use JS state — never read from DOM mid-session
+      const startW = colWidths[col];
       const startX = e.clientX;
-      const startW = th.offsetWidth;
       handle.classList.add('dragging');
 
       function onMove(e) {
         const w = Math.max(40, startW + e.clientX - startX);
-        document.querySelectorAll(`.${col}`).forEach(el => { el.style.width = w + 'px'; });
+        colWidths[col] = w;
+        document.querySelectorAll(`th.${col}`).forEach(el => { el.style.width = w + 'px'; });
       }
 
       function onUp() {
         handle.classList.remove('dragging');
-        const widths = loadColWidths();
-        widths[col] = th.offsetWidth;
-        saveColWidths(widths);
+        saveColWidths();
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
       }

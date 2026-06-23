@@ -19,7 +19,11 @@ Migration path:
 
 Unblocks: static file live-reload, credential cleanup, simpler install.
 
-### 2. Test suite
+### 2. Column resize lag
+
+Resizable columns work (no jump) but the column lags behind the cursor during drag. Cause likely: `table-layout: fixed` column width negotiation between header and body cells even when only setting `th` width. Possible fix: use a `<col>` element per column and set width on that instead of on `th`/`td` directly — `colgroup`/`col` is the correct CSS hook for fixed table column widths.
+
+### 3. Test suite
 **Priority: High**
 
 No automated tests exist. Cover these in rough order:

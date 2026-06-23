@@ -10,6 +10,7 @@ services:
       - "${HOME}/.membridge:/data"
       - "${HOME}/.claude/projects:${HOME}/.claude/projects:ro"
       - "${HOME}/.config/gcloud:/root/.config/gcloud:ro"
+      - "./membridge/static:/app/membridge/static:ro"
     environment:
       MEMBRIDGE_DB: /data/sessions.db
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
