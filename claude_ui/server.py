@@ -163,11 +163,21 @@ def _find_transcript(session_id: str) -> str | None:
 
 async def _generate_summary(session_id: str, transcript_path: str) -> None:
     try:
+        size = Path(transcript_path).stat().st_size
+    except OSError:
+        logger.warning("Transcript not found: %s", transcript_path)
+        return
+    # Dedup key: path + size — skip if we already summarised this exact snapshot
+    dedup_key = f"{transcript_path}:{size}"
+    if db.summary_file_already_ingested(dedup_key):
+        logger.info("Auto-summary already ingested for %s @ %d bytes, skipping", transcript_path, size)
+        return
+    try:
         loop = asyncio.get_event_loop()
         summary = await loop.run_in_executor(None, summarise, transcript_path)
         if summary:
-            db.add_summary(session_id, summary, source="auto")
-            logger.info("Summary added for session %s", session_id)
+            db.add_summary(session_id, summary, source="auto", file_path=dedup_key)
+            logger.info("Summary added for session %s (%d bytes)", session_id, size)
     except Exception as e:
         logger.warning("Summary task failed for %s: %s", session_id, e)
 
