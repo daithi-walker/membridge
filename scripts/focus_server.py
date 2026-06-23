@@ -40,7 +40,7 @@ PORT = 7843
 # Locate claude binary at startup — new iTerm2 tabs have a restricted PATH
 _CLAUDE_BIN = (
     shutil.which("claude")
-    or "/Users/david.walker/.local/bin/claude"
+    or os.path.expanduser("~/.local/bin/claude")
 )
 
 _FOCUS_BY_TTY_SCRIPT = """
