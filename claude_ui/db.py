@@ -158,11 +158,12 @@ def add_summary(
             (session_id, now, source, text, file_path),
         )
         row_id = cursor.lastrowid
-        # Keep sessions.summary as a display cache of the latest entry
-        conn.execute(
-            "UPDATE sessions SET summary = ?, summary_source = ? WHERE session_id = ?",
-            (text, source, session_id),
-        )
+        # sessions.summary is the short AI description — only auto-source updates it
+        if source == "auto":
+            conn.execute(
+                "UPDATE sessions SET summary = ?, summary_source = ? WHERE session_id = ?",
+                (text, source, session_id),
+            )
     return row_id
 
 
