@@ -231,19 +231,6 @@ function buildRow(s) {
   countTd.innerHTML = `<span class="count-text">${s.prompt_count}</span>`;
   tr.appendChild(countTd);
 
-  const summaryTd = td('col-summary');
-  const summaryEl = document.createElement('div');
-  summaryEl.className = 'summary-text' + (s.summary ? '' : ' empty');
-  summaryEl.textContent = s.summary ? stripMd(s.summary).slice(0, 120) + (stripMd(s.summary).length > 120 ? '…' : '') : '';
-  if (s.summary && s.summary_source === 'auto') {
-    const autoBadge = document.createElement('span');
-    autoBadge.className = 'auto-badge';
-    autoBadge.textContent = 'auto';
-    summaryEl.appendChild(autoBadge);
-  }
-  summaryTd.appendChild(summaryEl);
-  tr.appendChild(summaryTd);
-
   const chevTd = td('col-chevron');
   chevTd.innerHTML = `<span class="chevron">›</span>`;
   tr.appendChild(chevTd);
