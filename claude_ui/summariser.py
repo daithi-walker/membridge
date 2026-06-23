@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 USE_VERTEX = os.getenv("CLAUDE_CODE_USE_VERTEX", "") == "1"
 PROJECT_ID = os.getenv("ANTHROPIC_VERTEX_PROJECT_ID", "") or os.getenv("VERTEX_PROJECT_ID", "")
 REGION = os.getenv("CLOUD_ML_REGION", "") or os.getenv("VERTEX_REGION", "global")
-MODEL = os.getenv("CLAUDE_SUMMARY_MODEL", "claude-haiku-4-5-20251001")
+# Vertex uses @-format model IDs; Anthropic API uses dash-format
+_DEFAULT_MODEL = "claude-haiku-4-5@20251001" if USE_VERTEX else "claude-haiku-4-5-20251001"
+MODEL = os.getenv("CLAUDE_SUMMARY_MODEL", _DEFAULT_MODEL)
 MAX_TURNS = 20  # last N turns to include in summary prompt
 
 

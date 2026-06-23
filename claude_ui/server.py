@@ -110,7 +110,11 @@ async def stop(payload: StopPayload) -> dict:
 
 def _find_transcript(session_id: str) -> str | None:
     import os
-    projects_root = os.getenv("CLAUDE_PROJECTS_ROOT", str(Path.home() / ".claude" / "projects"))
+    # CLAUDE_PROJECTS_ROOT must be set to the host path that was volume-mounted.
+    # Path.home() inside Docker is /root, not the Mac user home.
+    projects_root = os.getenv("CLAUDE_PROJECTS_ROOT")
+    if not projects_root:
+        return None
     for path in Path(projects_root).rglob(f"{session_id}.jsonl"):
         return str(path)
     return None
