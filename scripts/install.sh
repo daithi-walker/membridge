@@ -62,6 +62,7 @@ for cmd in membridge-summarize membridge-archive membridge-context; do
   fi
 done
 rm -f "$HOME/.claude/commands/summarize.md"
+rm -f "$HOME/.claude/commands/membridge-recall.md"
 
 # ── 5. Register hooks ─────────────────────────────────────────────────────────
 echo ""
