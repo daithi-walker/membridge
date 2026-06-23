@@ -91,7 +91,7 @@ Run `sync_iterm_tabs.py` periodically (e.g. every 5 min via launchd) so tab alia
 - ✅ session_summaries append-only log table
 - ✅ History UI in modal — always visible, grouped by file, collapsible
 - ✅ Markdown rendering in summary and history entries
-- ✅ /summarize slash command (Bash heredoc, dynamic path)
+- ✅ /membridge-summarize slash command (Bash heredoc, dynamic path)
 - ✅ Summary file poller (30s, dedup by file_path)
 - ✅ Delete session endpoint
 - ✅ Re-summarise endpoint

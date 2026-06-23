@@ -36,8 +36,9 @@ echo "    Data dir: $HOME/.membridge"
 echo ""
 echo "==> Installing Claude Code commands..."
 mkdir -p "$HOME/.claude/commands"
-cp "$PROJECT_DIR/commands/summarize.md" "$HOME/.claude/commands/summarize.md"
-echo "    /summarize → ~/.claude/commands/summarize.md"
+cp "$PROJECT_DIR/commands/membridge-summarize.md" "$HOME/.claude/commands/membridge-summarize.md"
+rm -f "$HOME/.claude/commands/summarize.md"
+echo "    /membridge-summarize → ~/.claude/commands/membridge-summarize.md"
 
 # ── 3. Register hooks in ~/.claude/settings.json ──────────────────────────────
 echo ""
