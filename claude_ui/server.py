@@ -52,6 +52,7 @@ class StopPayload(BaseModel):
 class SessionPatch(BaseModel):
     description: str | None = None
     notes: str | None = None
+    archived: bool | None = None
 
 
 class SettingsPatch(BaseModel):
@@ -219,6 +220,8 @@ def patch_session(session_id: str, patch: SessionPatch) -> dict:
         db.update_description(session_id, patch.description)
     if patch.notes is not None:
         db.update_notes(session_id, patch.notes)
+    if patch.archived is not None:
+        db.set_archived(session_id, patch.archived)
     return {"ok": True}
 
 

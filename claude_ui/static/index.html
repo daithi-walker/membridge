@@ -142,17 +142,62 @@
 
     #controls input[type="checkbox"] { accent-color: var(--accent); }
 
-    #project-filter {
+    #project-filter-wrap { position: relative; }
+
+    .filter-btn {
       background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 3px 8px;
+      padding: 3px 10px;
       border-radius: 4px;
       font-size: 12px;
       font-family: inherit;
       cursor: pointer;
     }
-    #project-filter:focus { outline: none; border-color: var(--accent); }
+    .filter-btn:hover { border-color: var(--accent); }
+    .filter-btn.active { border-color: var(--accent); color: var(--accent); }
+
+    .filter-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 50;
+      min-width: 160px;
+      padding: 6px 0;
+    }
+
+    .filter-dropdown-actions {
+      display: flex;
+      gap: 6px;
+      padding: 4px 10px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-dropdown-actions button {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .filter-dropdown-actions button:hover { color: var(--text); border-color: var(--accent); }
+
+    .proj-check-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .proj-check-label:hover { background: var(--surface2); }
+    .proj-check-label input { accent-color: var(--accent); }
 
     #summary-count {
       margin-left: auto;
@@ -200,6 +245,7 @@
 
     tbody tr:hover { background: var(--surface); }
     tbody tr.row-active { background: var(--accent-dim) !important; }
+    tbody tr.row-archived { opacity: 0.5; }
 
     td { padding: 10px 16px; vertical-align: top; }
 
@@ -586,6 +632,14 @@
     }
     .btn-summarise:hover { border-color: var(--accent); color: var(--accent); }
 
+    .btn-archive {
+      border-color: var(--border);
+      color: var(--text-muted);
+      background: transparent;
+    }
+    .btn-archive:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-archive.archived { border-color: var(--active); color: var(--active); }
+
     .btn-delete {
       border-color: var(--border);
       color: #f87171;
@@ -656,9 +710,19 @@
     <label>
       <input type="checkbox" id="show-stale"> Show stale
     </label>
-    <select id="project-filter">
-      <option value="">All projects</option>
-    </select>
+    <label>
+      <input type="checkbox" id="show-archived"> Show archived
+    </label>
+    <div id="project-filter-wrap">
+      <button id="project-filter-btn" class="filter-btn">Projects ▾</button>
+      <div id="project-filter-dropdown" class="filter-dropdown" style="display:none">
+        <div class="filter-dropdown-actions">
+          <button id="proj-select-all">All</button>
+          <button id="proj-select-none">None</button>
+        </div>
+        <div id="proj-checkboxes"></div>
+      </div>
+    </div>
     <span id="summary-count"></span>
   </div>
 
@@ -703,6 +767,7 @@
         </div>
         <div class="panel-actions">
           <button class="btn-summarise" id="panel-summarise-btn">↻ Summarise</button>
+          <button class="btn-archive" id="panel-archive-btn">Archive</button>
           <button class="btn-delete" id="panel-delete-btn">✕ Delete</button>
         </div>
 

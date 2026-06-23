@@ -2,7 +2,8 @@ let REFRESH_MS = 30_000;
 let refreshTimer = null;
 let sessions = [];
 let showStale = false;
-let projectFilter = '';
+let showArchived = false;
+let projectFilter = new Set(); // empty = all projects
 let activePanel = null;
 
 const tbody = document.getElementById('sessions-body');
@@ -12,8 +13,11 @@ const summaryCount = document.getElementById('summary-count');
 const indicator = document.getElementById('refresh-btn');
 indicator.addEventListener('click', syncAndRefresh);
 const showStaleCheckbox = document.getElementById('show-stale');
+const showArchivedCheckbox = document.getElementById('show-archived');
 const themeToggle = document.getElementById('theme-toggle');
-const projectSelect = document.getElementById('project-filter');
+const projFilterBtn = document.getElementById('project-filter-btn');
+const projFilterDropdown = document.getElementById('project-filter-dropdown');
+const projCheckboxes = document.getElementById('proj-checkboxes');
 const panelOverlay = document.getElementById('panel-overlay');
 const panel = document.getElementById('side-panel');
 const panelClose = document.getElementById('panel-close');
@@ -46,7 +50,9 @@ function applyTheme(theme) {
 // Restore persisted filter state
 showStale = localStorage.getItem('mb-show-stale') === 'true';
 showStaleCheckbox.checked = showStale;
-projectFilter = localStorage.getItem('mb-project-filter') || '';
+showArchived = localStorage.getItem('mb-show-archived') === 'true';
+showArchivedCheckbox.checked = showArchived;
+try { projectFilter = new Set(JSON.parse(localStorage.getItem('mb-project-filter') || '[]')); } catch (_) {}
 
 showStaleCheckbox.addEventListener('change', () => {
   showStale = showStaleCheckbox.checked;
@@ -54,11 +60,38 @@ showStaleCheckbox.addEventListener('change', () => {
   render(sessions);
 });
 
-projectSelect.addEventListener('change', () => {
-  projectFilter = projectSelect.value;
-  localStorage.setItem('mb-project-filter', projectFilter);
+showArchivedCheckbox.addEventListener('change', () => {
+  showArchived = showArchivedCheckbox.checked;
+  localStorage.setItem('mb-show-archived', showArchived);
   render(sessions);
 });
+
+// Project filter dropdown
+projFilterBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  const open = projFilterDropdown.style.display !== 'none';
+  projFilterDropdown.style.display = open ? 'none' : 'block';
+});
+document.addEventListener('click', () => { projFilterDropdown.style.display = 'none'; });
+projFilterDropdown.addEventListener('click', e => e.stopPropagation());
+
+document.getElementById('proj-select-all').addEventListener('click', () => {
+  projCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = true; });
+  projectFilter = new Set();
+  saveProjectFilter();
+  render(sessions);
+});
+document.getElementById('proj-select-none').addEventListener('click', () => {
+  projCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = false; });
+  projectFilter = new Set(['__none__']); // special sentinel — show nothing
+  saveProjectFilter();
+  render(sessions);
+});
+
+function saveProjectFilter() {
+  localStorage.setItem('mb-project-filter', JSON.stringify([...projectFilter]));
+  projFilterBtn.classList.toggle('active', projectFilter.size > 0);
+}
 
 panelClose.addEventListener('click', closePanel);
 panelOverlay.addEventListener('click', e => { if (e.target === panelOverlay) closePanel(); });
@@ -161,20 +194,49 @@ async function fetchSessions() {
 
 function updateProjectFilter(all) {
   const projects = [...new Set(all.map(s => s.project_name))].sort();
-  const current = projectSelect.value;
-  projectSelect.innerHTML = '<option value="">All projects</option>';
+  projCheckboxes.innerHTML = '';
   for (const p of projects) {
-    const opt = document.createElement('option');
-    opt.value = p;
-    opt.textContent = p;
-    if (p === current) opt.selected = true;
-    projectSelect.appendChild(opt);
+    const label = document.createElement('label');
+    label.className = 'proj-check-label';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = p;
+    cb.checked = projectFilter.size === 0 || projectFilter.has(p);
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        projectFilter.delete(p);
+        // if all checked, reset to empty (= all)
+        const allChecked = [...projCheckboxes.querySelectorAll('input')].every(c => c.checked);
+        if (allChecked) projectFilter = new Set();
+      } else {
+        if (projectFilter.size === 0) {
+          // was "all" — seed with all projects minus this one
+          projectFilter = new Set(projects.filter(x => x !== p));
+        } else {
+          projectFilter.add(p);
+        }
+      }
+      saveProjectFilter();
+      render(sessions);
+    });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(p));
+    projCheckboxes.appendChild(label);
   }
+  projFilterBtn.classList.toggle('active', projectFilter.size > 0 && !projectFilter.has('__none__') ||
+    projectFilter.has('__none__'));
 }
 
 function render(all) {
   let visible = showStale ? all : all.filter(s => s.status !== 'stale');
-  if (projectFilter) visible = visible.filter(s => s.project_name === projectFilter);
+  if (!showArchived) visible = visible.filter(s => !s.archived);
+  if (projectFilter.size > 0) {
+    if (projectFilter.has('__none__')) {
+      visible = [];
+    } else {
+      visible = visible.filter(s => !projectFilter.has(s.project_name));
+    }
+  }
 
   const active = all.filter(s => s.status === 'active').length;
   const idle = all.filter(s => s.status === 'idle').length;
@@ -203,6 +265,7 @@ function render(all) {
 function buildRow(s) {
   const tr = document.createElement('tr');
   if (activePanel === s.session_id) tr.classList.add('row-active');
+  if (s.archived) tr.classList.add('row-archived');
 
   const statusTd = td('col-status');
   const badge = document.createElement('span');
@@ -327,6 +390,23 @@ function openPanel(s, scrollIntoView) {
       summariseBtn.textContent = '✗ Error';
     }
     setTimeout(() => { summariseBtn.textContent = '↻ Summarise'; summariseBtn.disabled = false; }, 3000);
+  };
+
+  const archiveBtn = document.getElementById('panel-archive-btn');
+  const updateArchiveBtn = () => {
+    archiveBtn.textContent = s.archived ? 'Unarchive' : 'Archive';
+    archiveBtn.classList.toggle('archived', !!s.archived);
+  };
+  updateArchiveBtn();
+  archiveBtn.onclick = async () => {
+    s.archived = !s.archived;
+    await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: s.archived }),
+    });
+    updateArchiveBtn();
+    fetchSessions();
   };
 
   const deleteBtn = document.getElementById('panel-delete-btn');

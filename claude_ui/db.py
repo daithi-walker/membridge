@@ -57,6 +57,7 @@ _MIGRATIONS = [
     "ALTER TABLE sessions ADD COLUMN description TEXT;",
     "UPDATE sessions SET description = summary WHERE description IS NULL AND summary IS NOT NULL;",
     # summary_source column is obsolete — SQLite can't DROP columns cleanly, just leave it
+    "ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;",
 ]
 
 
@@ -218,6 +219,14 @@ def update_notes(session_id: str, notes: str) -> None:
         conn.execute(
             "UPDATE sessions SET notes = ? WHERE session_id = ?",
             (notes, session_id),
+        )
+
+
+def set_archived(session_id: str, archived: bool) -> None:
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE sessions SET archived = ? WHERE session_id = ?",
+            (1 if archived else 0, session_id),
         )
 
 
