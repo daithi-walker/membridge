@@ -32,6 +32,13 @@ echo "    Image built: membridge:latest"
 mkdir -p "$HOME/.membridge"
 echo "    Data dir: $HOME/.membridge"
 
+# ── 2b. Install Claude Code slash commands ────────────────────────────────────
+echo ""
+echo "==> Installing Claude Code commands..."
+mkdir -p "$HOME/.claude/commands"
+cp "$PROJECT_DIR/commands/summarize.md" "$HOME/.claude/commands/summarize.md"
+echo "    /summarize → ~/.claude/commands/summarize.md"
+
 # ── 3. Register hooks in ~/.claude/settings.json ──────────────────────────────
 echo ""
 echo "==> Registering hooks in $SETTINGS_FILE..."
@@ -160,5 +167,6 @@ echo "    Dashboard:   http://localhost:7842"
 echo "    App logs:    tail -f /tmp/membridge.log"
 echo "    Focus logs:  tail -f /tmp/membridge-focus.log"
 echo "    DB:          ~/.membridge/sessions.db"
+echo "    Commands:    /summarize (in any Claude Code session)"
 echo ""
 echo "    Hooks registered — restart Claude Code to pick them up."

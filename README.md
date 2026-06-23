@@ -64,6 +64,7 @@ This will:
 - Create `~/.membridge/` for the SQLite DB
 - Register `UserPromptSubmit`, `PreToolUse`, and `Stop` hooks in `~/.claude/settings.json`
 - Install a launchd service for the focus server (`com.daihi.membridge-focus`, port 7843)
+- Install the `/summarize` slash command to `~/.claude/commands/summarize.md`
 
 ### 3. Start the app
 
