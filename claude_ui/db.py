@@ -94,6 +94,13 @@ def _conn() -> Generator[sqlite3.Connection, None, None]:
         conn.close()
 
 
+class UpsertResult:
+    def __init__(self, is_new: bool, uuid_changed: bool, stored_tab_name: str | None):
+        self.is_new = is_new
+        self.uuid_changed = uuid_changed
+        self.stored_tab_name = stored_tab_name  # canonical name to restore on resume
+
+
 def upsert_heartbeat(
     session_id: str,
     cwd: str,
@@ -101,19 +108,22 @@ def upsert_heartbeat(
     iterm_tab: str | None,
     pid: int | None = None,
     iterm_session_uuid: str | None = None,
-) -> bool:
-    """Returns True if this is a new session, False if existing."""
+) -> UpsertResult:
     project_name = Path(cwd).name
     now = _now()
     with _conn() as conn:
         existing = conn.execute(
-            "SELECT session_id FROM sessions WHERE session_id = ?", (session_id,)
+            "SELECT iterm_session_uuid, iterm_tab FROM sessions WHERE session_id = ?",
+            (session_id,)
         ).fetchone()
         if existing:
-            uuid_known = conn.execute(
-                "SELECT iterm_session_uuid FROM sessions WHERE session_id = ?", (session_id,)
-            ).fetchone()[0]
-            tab_update = iterm_tab if not uuid_known else None
+            stored_uuid, stored_tab = existing[0], existing[1]
+            # UUID changed = resumed into a new iTerm tab
+            uuid_changed = bool(
+                iterm_session_uuid and stored_uuid and iterm_session_uuid != stored_uuid
+            )
+            # Only overwrite stored tab name when no UUID was previously known
+            tab_update = iterm_tab if not stored_uuid else None
             conn.execute(
                 """UPDATE sessions
                    SET last_seen = ?,
@@ -125,7 +135,7 @@ def upsert_heartbeat(
                    WHERE session_id = ?""",
                 (now, branch or None, tab_update or None, pid, iterm_session_uuid or None, session_id),
             )
-            return False
+            return UpsertResult(is_new=False, uuid_changed=uuid_changed, stored_tab_name=stored_tab)
         else:
             conn.execute(
                 """INSERT INTO sessions
@@ -135,7 +145,7 @@ def upsert_heartbeat(
                 (session_id, cwd, project_name, branch or None, iterm_tab or None, pid,
                  iterm_session_uuid or None, now, now),
             )
-            return True
+            return UpsertResult(is_new=True, uuid_changed=False, stored_tab_name=None)
 
 
 def record_stop(session_id: str, stop_reason: str) -> None:

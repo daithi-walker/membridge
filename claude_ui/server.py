@@ -66,7 +66,7 @@ class SettingsPatch(BaseModel):
 
 @app.post("/api/heartbeat")
 def heartbeat(payload: HeartbeatPayload) -> dict:
-    is_new = db.upsert_heartbeat(
+    result = db.upsert_heartbeat(
         session_id=payload.session_id,
         cwd=payload.cwd,
         branch=payload.branch or None,
@@ -74,10 +74,16 @@ def heartbeat(payload: HeartbeatPayload) -> dict:
         pid=payload.pid,
         iterm_session_uuid=payload.iterm_session_uuid or None,
     )
-    if is_new and payload.iterm_tab:
+    if result.is_new and payload.iterm_tab:
+        # New session — rename the new tab to project · branch
         project = payload.cwd.split("/")[-1] if payload.cwd else "claude"
         new_name = f"{project}" + (f" · {payload.branch}" if payload.branch else "")
         _rename_iterm_tab(payload.iterm_tab, new_name)
+    elif result.uuid_changed and payload.iterm_tab and result.stored_tab_name:
+        # Resumed session in a new tab — restore the canonical tab name
+        _rename_iterm_tab(payload.iterm_tab, result.stored_tab_name)
+        logger.info("Restored tab name '%s' for resumed session %s",
+                    result.stored_tab_name, payload.session_id)
     return {"ok": True}
 
 
