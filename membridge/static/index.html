@@ -247,16 +247,29 @@
     tbody tr.row-active { background: var(--accent-dim) !important; }
     tbody tr.row-archived { opacity: 0.5; }
 
+    th, td { box-sizing: border-box; }
     td { padding: 10px 16px; vertical-align: top; }
 
     .col-status  { width: 76px; }
     .col-project { width: 140px; }
-    .col-iterm   { width: 120px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .col-branch  { min-width: 100px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-iterm   { width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-branch  { width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .col-last    { width: 100px; white-space: nowrap; }
     .col-prompts { width: 64px; text-align: right; }
-    .col-desc    { min-width: 180px; max-width: 320px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .col-desc    { width: 240px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .col-chevron { width: 28px; color: var(--text-muted); text-align: right; padding-right: 12px; }
+
+    #sessions-table { table-layout: fixed; }
+    th { position: relative; }
+    .col-resize-handle {
+      position: absolute; right: 0; top: 0; bottom: 0;
+      width: 6px; cursor: col-resize;
+      user-select: none;
+    }
+    .col-resize-handle:hover, .col-resize-handle.dragging {
+      background: var(--accent, #E4A636);
+      opacity: 0.6;
+    }
 
     .project-name { font-weight: 600; color: var(--text); }
     .session-id   { font-family: monospace; font-size: 10px; color: var(--text-muted); margin-top: 2px; }
@@ -790,13 +803,13 @@
       <table id="sessions-table" style="display:none">
         <thead>
           <tr>
-            <th class="col-status">Status</th>
-            <th class="col-project">Project</th>
-            <th class="col-iterm">iTerm Tab</th>
-            <th class="col-branch">Branch</th>
-            <th class="col-last">Last Active</th>
-            <th class="col-prompts">Prompts</th>
-            <th class="col-desc">Description</th>
+            <th class="col-status">Status<span class="col-resize-handle" data-col="col-status"></span></th>
+            <th class="col-project">Project<span class="col-resize-handle" data-col="col-project"></span></th>
+            <th class="col-iterm">Activity<span class="col-resize-handle" data-col="col-iterm"></span></th>
+            <th class="col-branch">Branch<span class="col-resize-handle" data-col="col-branch"></span></th>
+            <th class="col-last">Last Active<span class="col-resize-handle" data-col="col-last"></span></th>
+            <th class="col-prompts">Prompts<span class="col-resize-handle" data-col="col-prompts"></span></th>
+            <th class="col-desc">Description<span class="col-resize-handle" data-col="col-desc"></span></th>
             <th class="col-chevron"></th>
           </tr>
         </thead>
@@ -839,7 +852,7 @@
             <span class="meta-label">Branch</span>
             <span class="meta-value" id="panel-branch">—</span>
 
-            <span class="meta-label">iTerm tab</span>
+            <span class="meta-label">Activity</span>
             <span class="meta-value" id="panel-iterm">—</span>
 
             <span class="meta-label">PID</span>

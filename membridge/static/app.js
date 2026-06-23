@@ -710,6 +710,56 @@ function formatDateTime(isoStr) {
   return new Date(isoStr).toLocaleString();
 }
 
+// ── Column resize ─────────────────────────────────────────────────────────────
+
+const COL_WIDTHS_KEY = 'membridge_col_widths';
+
+function loadColWidths() {
+  try { return JSON.parse(localStorage.getItem(COL_WIDTHS_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveColWidths(widths) {
+  localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(widths));
+}
+
+function applyColWidths() {
+  const widths = loadColWidths();
+  for (const [col, w] of Object.entries(widths)) {
+    document.querySelectorAll(`.${col}`).forEach(el => { el.style.width = w + 'px'; });
+  }
+}
+
+function initColResize() {
+  applyColWidths();
+  document.querySelectorAll('.col-resize-handle').forEach(handle => {
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const col = handle.dataset.col;
+      const th = handle.closest('th');
+      const startX = e.clientX;
+      const startW = th.offsetWidth;
+      handle.classList.add('dragging');
+
+      function onMove(e) {
+        const w = Math.max(40, startW + e.clientX - startX);
+        document.querySelectorAll(`.${col}`).forEach(el => { el.style.width = w + 'px'; });
+      }
+
+      function onUp() {
+        handle.classList.remove('dragging');
+        const widths = loadColWidths();
+        widths[col] = th.offsetWidth;
+        saveColWidths(widths);
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -718,6 +768,7 @@ function formatDateTime(isoStr) {
     const s = await res.json();
     REFRESH_MS = s.refresh_interval_secs * 1000;
   } catch (_) {}
+  initColResize();
   fetchSessions();
   restartRefreshTimer();
 })();

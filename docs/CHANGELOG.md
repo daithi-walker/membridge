@@ -6,6 +6,10 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Resizable table columns — drag handles on all headers, widths persisted to localStorage
+- iTerm Tab column renamed to Activity — shows live Claude Code task title, updated every heartbeat
+- Auto-summary text-match dedup — same bracketed description not re-inserted even when transcript grows
+- Removed heartbeat tab rename on UUID change — was resetting all tab names after container rebuild (ADR 009)
 - Focus button resumes dead sessions: UUID match → PID/TTY → open new tab with `claude --resume` in correct cwd
 - Tab name set immediately on resume (osascript names tab before writing command)
 - Tab rename on first heartbeat after `claude --resume` (UUID change detection in upsert)

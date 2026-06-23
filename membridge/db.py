@@ -129,8 +129,6 @@ def upsert_heartbeat(
             uuid_changed = bool(
                 iterm_session_uuid and stored_uuid and iterm_session_uuid != stored_uuid
             )
-            # Only overwrite stored tab name when no UUID was previously known
-            tab_update = iterm_tab if not stored_uuid else None
             conn.execute(
                 """UPDATE sessions
                    SET last_seen = ?,
@@ -140,7 +138,7 @@ def upsert_heartbeat(
                        pid = COALESCE(?, pid),
                        iterm_session_uuid = COALESCE(?, iterm_session_uuid)
                    WHERE session_id = ?""",
-                (now, branch or None, tab_update or None, pid, iterm_session_uuid or None, session_id),
+                (now, branch or None, iterm_tab or None, pid, iterm_session_uuid or None, session_id),
             )
             return UpsertResult(is_new=False, uuid_changed=uuid_changed, stored_tab_name=stored_tab)
         else:
