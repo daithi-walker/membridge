@@ -136,3 +136,21 @@ python3 ~/git/membridge/scripts/sync_iterm_tabs.py
 Then click the ↻ refresh button in the dashboard.
 
 The `--dry-run` flag shows what would change without writing to the DB.
+
+## Gotcha — ITERM2_PYTHON not set after install
+
+The focus server is managed by launchd (`com.daihi.membridge-focus`). launchd does **not** inherit shell env vars, so `ITERM2_PYTHON` from `~/.zshrc` is invisible to the process. The ↻ refresh button's tab sync will silently fall back to osascript TTY matching and tab aliases won't update.
+
+**Fix:** `install.sh` now auto-detects and bakes `ITERM2_PYTHON` into the launchd plist. If you set up before this was fixed, update the plist manually:
+
+```xml
+<key>EnvironmentVariables</key>
+<dict>
+  <key>ITERM2_PYTHON</key>
+  <string>/Users/<you>/Library/Application Support/iTerm2/iterm2env-3.10.19/versions/3.14.0/bin/python3.14</string>
+</dict>
+```
+
+Find the right path: `ls ~/Library/"Application Support"/iTerm2/iterm2env-*/versions/3.14.0/bin/python3.14`
+
+Then reload: `launchctl unload ~/Library/LaunchAgents/com.daihi.membridge-focus.plist && launchctl load ~/Library/LaunchAgents/com.daihi.membridge-focus.plist`

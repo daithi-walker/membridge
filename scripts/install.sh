@@ -131,6 +131,27 @@ echo "    Loaded: $PLIST_LABEL (port 7842)"
 FOCUS_PLIST_LABEL="com.daihi.membridge-focus"
 FOCUS_PLIST_PATH="$HOME/Library/LaunchAgents/${FOCUS_PLIST_LABEL}.plist"
 
+# Detect iTerm2 bundled Python for sync-tabs (titleOverride API)
+ITERM2_PYTHON_BIN=""
+for candidate in "$HOME/Library/Application Support/iTerm2"/iterm2env-*/versions/3.14.0/bin/python3.14; do
+  if [ -x "$candidate" ] && "$candidate" -c "import iterm2" 2>/dev/null; then
+    ITERM2_PYTHON_BIN="$candidate"
+    break
+  fi
+done
+
+if [ -n "$ITERM2_PYTHON_BIN" ]; then
+  echo "    iTerm2 Python: $ITERM2_PYTHON_BIN"
+  ITERM2_ENV_BLOCK="  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ITERM2_PYTHON</key>
+    <string>${ITERM2_PYTHON_BIN}</string>
+  </dict>"
+else
+  echo "    iTerm2 Python runtime not found — tab alias sync will use osascript fallback"
+  ITERM2_ENV_BLOCK=""
+fi
+
 cat > "$FOCUS_PLIST_PATH" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -151,6 +172,7 @@ cat > "$FOCUS_PLIST_PATH" << PLIST
   <string>/tmp/membridge-focus.log</string>
   <key>StandardErrorPath</key>
   <string>/tmp/membridge-focus.log</string>
+${ITERM2_ENV_BLOCK}
 </dict>
 </plist>
 PLIST
