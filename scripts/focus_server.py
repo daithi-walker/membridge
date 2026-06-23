@@ -18,6 +18,11 @@ Endpoints:
 
   GET  /pid/<pid>
                 Returns {"alive": true/false} — whether the PID is still running on the host.
+
+  POST /sync-tabs
+                Runs sync_iterm_tabs.py in the background (non-blocking).
+                Returns immediately with {"ok": true, "status": "started"}.
+                The dashboard should re-fetch /api/sessions after ~35s.
 """
 
 import json
@@ -25,7 +30,10 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+_SYNC_SCRIPT = os.path.join(os.path.dirname(__file__), "sync_iterm_tabs.py")
 
 PORT = 7843
 
@@ -148,6 +156,8 @@ end tell
             self._handle_focus(body)
         elif self.path == "/rename":
             self._handle_rename(body)
+        elif self.path == "/sync-tabs":
+            self._handle_sync_tabs()
         else:
             self._respond(404, {"error": "not found"})
 
@@ -192,6 +202,18 @@ end tell
             return tty if tty and tty != "??" else None
         except Exception:
             return None
+
+    def _handle_sync_tabs(self):
+        iterm2_python = os.environ.get("ITERM2_PYTHON", "")
+
+        def _run():
+            cmd = [sys.executable, _SYNC_SCRIPT]
+            if iterm2_python:
+                cmd = [iterm2_python, _SYNC_SCRIPT]
+            subprocess.run(cmd, capture_output=True, timeout=60)
+
+        threading.Thread(target=_run, daemon=True).start()
+        self._respond(200, {"ok": True, "status": "started", "eta_secs": 35})
 
     def _handle_rename(self, body):
         old_name = body.get("old_name", "")

@@ -10,7 +10,7 @@ const table = document.getElementById('sessions-table');
 const emptyState = document.getElementById('empty-state');
 const summaryCount = document.getElementById('summary-count');
 const indicator = document.getElementById('refresh-btn');
-indicator.addEventListener('click', fetchSessions);
+indicator.addEventListener('click', syncAndRefresh);
 const showStaleCheckbox = document.getElementById('show-stale');
 const themeToggle = document.getElementById('theme-toggle');
 const projectSelect = document.getElementById('project-filter');
@@ -117,6 +117,25 @@ async function saveSettings() {
 }
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
+
+async function syncAndRefresh() {
+  indicator.classList.add('spinning');
+  indicator.title = 'Syncing tab names…';
+  try {
+    await fetch('http://localhost:7843/sync-tabs', { method: 'POST' });
+  } catch (_) {}
+  // iTerm2 API takes ~30s; poll every 5s for up to 40s then give up
+  let waited = 0;
+  const poll = setInterval(async () => {
+    waited += 5;
+    await fetchSessions();
+    if (waited >= 40) {
+      clearInterval(poll);
+      indicator.classList.remove('spinning');
+      indicator.title = 'Click to refresh';
+    }
+  }, 5000);
+}
 
 function restartRefreshTimer() {
   if (refreshTimer) clearInterval(refreshTimer);
