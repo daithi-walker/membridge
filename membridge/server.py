@@ -354,6 +354,21 @@ def patch_session(session_id: str, patch: SessionPatch) -> dict:
     return {"ok": True}
 
 
+class NotificationPayload(BaseModel):
+    session_id: str
+    notif_type: str = ""
+    message: str = ""
+
+
+@app.post("/api/notification")
+def notification(payload: NotificationPayload) -> dict:
+    was_awaiting = db.record_stop(payload.session_id, f"notification:{payload.notif_type}")
+    _broadcast("refresh")
+    _notify_stop(payload.session_id, was_awaiting)
+    logger.info("Notification hook: session=%s type=%s", payload.session_id, payload.notif_type)
+    return {"ok": True}
+
+
 class PushSummaryPayload(BaseModel):
     text: str
     source: str = "skill"
