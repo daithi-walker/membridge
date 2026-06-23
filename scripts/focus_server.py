@@ -43,6 +43,25 @@ _CLAUDE_BIN = (
     or os.path.expanduser("~/.local/bin/claude")
 )
 
+_FOCUS_BY_UUID_SCRIPT = """
+tell application "iTerm2"
+    activate
+    set targetUUID to "{uuid}"
+    repeat with w in windows
+        repeat with t in tabs of w
+            repeat with s in sessions of t
+                if unique ID of s is targetUUID then
+                    select w
+                    select t
+                    return "focused"
+                end if
+            end repeat
+        end repeat
+    end repeat
+    return "not_found"
+end tell
+"""
+
 _FOCUS_BY_TTY_SCRIPT = """
 tell application "iTerm2"
     activate
@@ -172,11 +191,23 @@ end tell
         session_id = body.get("session_id", "")
         pid = body.get("pid")
         cwd = body.get("cwd") or os.path.expanduser("~")
+        iterm_uuid = body.get("iterm_session_uuid")
         if not session_id:
             self._respond(400, {"error": "session_id required"})
             return
 
-        # Strategy 1: find iTerm2 session by PID → TTY
+        # Strategy 1: focus by iTerm2 session UUID — most reliable, survives renames
+        if iterm_uuid:
+            script = _FOCUS_BY_UUID_SCRIPT.format(uuid=iterm_uuid.replace('"', '\\"'))
+            result = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.stdout.strip() == "focused":
+                self._respond(200, {"ok": True, "action": "focused"})
+                return
+
+        # Strategy 2: find iTerm2 session by PID → TTY
         if pid:
             tty = self._pid_to_tty(int(pid))
             if tty:

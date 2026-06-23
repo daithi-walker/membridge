@@ -384,7 +384,7 @@ function openPanel(s, scrollIntoView) {
       const res = await fetch('http://localhost:7843/focus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null, cwd: s.cwd || null, tab_name: s.iterm_tab || null }),
+        body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null, cwd: s.cwd || null, tab_name: s.iterm_tab || null, iterm_session_uuid: s.iterm_session_uuid || null }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
