@@ -62,26 +62,6 @@ tell application "iTerm2"
 end tell
 """
 
-_FOCUS_AND_RESUME_BY_NAME_SCRIPT = """
-tell application "iTerm2"
-    activate
-    set matchName to "{tab_name}"
-    repeat with w in windows
-        repeat with t in tabs of w
-            repeat with s in sessions of t
-                if name of s contains matchName then
-                    select w
-                    select t
-                    tell s to write text "{claude_bin} --resume {session_id}"
-                    return "resumed"
-                end if
-            end repeat
-        end repeat
-    end repeat
-    return "not_found"
-end tell
-"""
-
 _FOCUS_BY_TTY_SCRIPT = """
 tell application "iTerm2"
     activate
@@ -241,24 +221,8 @@ end tell
                     self._respond(200, {"ok": True, "action": "focused"})
                     return
 
-        # Strategy 3: find existing tab by stored name, focus it and run claude --resume in it
+        # Strategy 3: open a new tab with claude --resume
         tab_name = body.get("tab_name") or session_id[:8]
-        if tab_name:
-            script = _FOCUS_AND_RESUME_BY_NAME_SCRIPT.format(
-                tab_name=tab_name.replace('"', '\\"'),
-                claude_bin=_CLAUDE_BIN.replace('"', '\\"'),
-                session_id=session_id.replace('"', '\\"'),
-            )
-            result = subprocess.run(
-                ["osascript", "-e", script],
-                capture_output=True, text=True, timeout=5
-            )
-            action = result.stdout.strip()
-            if action == "resumed":
-                self._respond(200, {"ok": True, "action": "resumed"})
-                return
-
-        # Strategy 4: open a new tab with claude --resume
         script = _OPEN_TAB_SCRIPT.format(
             cwd=cwd.replace('"', '\\"'),
             claude_bin=_CLAUDE_BIN.replace('"', '\\"'),
