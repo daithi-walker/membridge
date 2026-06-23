@@ -37,8 +37,12 @@ echo ""
 echo "==> Installing Claude Code commands..."
 mkdir -p "$HOME/.claude/commands"
 cp "$PROJECT_DIR/commands/membridge-summarize.md" "$HOME/.claude/commands/membridge-summarize.md"
+cp "$PROJECT_DIR/commands/membridge-archive.md" "$HOME/.claude/commands/membridge-archive.md"
+cp "$PROJECT_DIR/commands/membridge-recall.md" "$HOME/.claude/commands/membridge-recall.md"
 rm -f "$HOME/.claude/commands/summarize.md"
 echo "    /membridge-summarize → ~/.claude/commands/membridge-summarize.md"
+echo "    /membridge-archive   → ~/.claude/commands/membridge-archive.md"
+echo "    /membridge-recall    → ~/.claude/commands/membridge-recall.md"
 
 # ── 3. Register hooks in ~/.claude/settings.json ──────────────────────────────
 echo ""
