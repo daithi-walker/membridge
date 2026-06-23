@@ -213,6 +213,10 @@ function buildRow(s) {
   projTd.innerHTML = `<div class="project-name">${esc(s.project_name)}</div><div class="session-id">${esc(s.session_id.slice(0, 8))}…</div>`;
   tr.appendChild(projTd);
 
+  const itermTd = td('col-iterm');
+  itermTd.innerHTML = `<span class="iterm-text">${esc(s.iterm_tab || '—')}</span>`;
+  tr.appendChild(itermTd);
+
   const branchTd = td('col-branch');
   branchTd.innerHTML = `<span class="branch-text">${esc(s.git_branch || '—')}</span>`;
   tr.appendChild(branchTd);
