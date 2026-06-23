@@ -305,6 +305,24 @@ function openPanel(s, scrollIntoView) {
     });
   };
 
+  const historyToggle = document.getElementById('panel-history-toggle');
+  const historyPanel = document.getElementById('panel-summary-history');
+  const historyList = document.getElementById('panel-history-list');
+  let historyOpen = false;
+  historyPanel.style.display = 'none';
+  historyToggle.textContent = 'History';
+  historyToggle.onclick = async () => {
+    historyOpen = !historyOpen;
+    if (historyOpen) {
+      historyPanel.style.display = 'block';
+      historyToggle.textContent = 'Hide';
+      await loadHistory(s.session_id);
+    } else {
+      historyPanel.style.display = 'none';
+      historyToggle.textContent = 'History';
+    }
+  };
+
   const summariseBtn = document.getElementById('panel-summarise-btn');
   summariseBtn.textContent = '↻ Summarise';
   summariseBtn.onclick = async () => {
@@ -317,8 +335,10 @@ function openPanel(s, scrollIntoView) {
         summariseBtn.textContent = err.detail === 'Transcript not found' ? '✗ No transcript' : '✗ Failed';
       } else {
         summariseBtn.textContent = '✓ Queued';
-        // Poll once after 8s to pick up the new summary
-        setTimeout(fetchSessions, 8000);
+        setTimeout(async () => {
+          await fetchSessions();
+          if (historyOpen) await loadHistory(s.session_id);
+        }, 8000);
       }
     } catch (_) {
       summariseBtn.textContent = '✗ Error';
@@ -343,6 +363,30 @@ function openPanel(s, scrollIntoView) {
 
   panel.classList.add('open');
   document.getElementById('layout').classList.add('panel-open');
+}
+
+async function loadHistory(sessionId) {
+  const historyList = document.getElementById('panel-history-list');
+  try {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/summaries`);
+    const entries = await res.json();
+    if (!entries.length) {
+      historyList.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:4px 0">No summaries yet.</div>';
+      return;
+    }
+    historyList.innerHTML = entries.map(e => `
+      <div class="history-entry">
+        <div class="history-meta">
+          <span class="history-source history-source-${esc(e.source)}">${esc(e.source)}</span>
+          <span>${relativeTime(e.created_at)}</span>
+          ${e.file_path ? `<span title="${esc(e.file_path)}" style="opacity:0.6">file</span>` : ''}
+        </div>
+        <div class="history-text">${esc(e.text)}</div>
+      </div>
+    `).join('');
+  } catch (_) {
+    historyList.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">Failed to load history.</div>';
+  }
 }
 
 function closePanel() {
@@ -392,6 +436,8 @@ function startPanelSummaryEdit(s, el) {
       });
       s.summary = newSummary;
       s.summary_source = 'user';
+      const hp = document.getElementById('panel-summary-history');
+      if (hp && hp.style.display !== 'none') await loadHistory(s.session_id);
     }
     const newEl = document.createElement('div');
     newEl.id = 'panel-summary';

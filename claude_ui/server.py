@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,8 +22,9 @@ _STATIC_DIR = Path(__file__).parent / "static"
 
 
 @app.on_event("startup")
-def startup() -> None:
+async def startup() -> None:
     db.init_db()
+    asyncio.create_task(_poll_summary_files())
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -108,6 +110,44 @@ async def stop(payload: StopPayload) -> dict:
     return {"ok": True}
 
 
+_SUMMARIES_ROOT = Path(os.getenv("MEMBRIDGE_DB", "/data/sessions.db")).parent / "summaries"
+
+_POLL_INTERVAL = 30  # seconds
+
+
+async def _poll_summary_files() -> None:
+    """Periodically ingest any new summary files written to ~/.membridge/summaries/<session_id>/."""
+    import asyncio as _asyncio
+    while True:
+        await _asyncio.sleep(_POLL_INTERVAL)
+        try:
+            _ingest_summary_files()
+        except Exception as e:
+            logger.warning("Summary file poll error: %s", e)
+
+
+def _ingest_summary_files() -> None:
+    if not _SUMMARIES_ROOT.exists():
+        return
+    for session_dir in _SUMMARIES_ROOT.iterdir():
+        if not session_dir.is_dir():
+            continue
+        session_id = session_dir.name
+        if not db.get_session(session_id):
+            continue
+        for f in sorted(session_dir.glob("*.md")):
+            file_path = str(f)
+            if db.summary_file_already_ingested(file_path):
+                continue
+            try:
+                text = f.read_text().strip()
+                if text:
+                    db.add_summary(session_id, text, source="skill", file_path=file_path)
+                    logger.info("Ingested summary file %s", file_path)
+            except Exception as e:
+                logger.warning("Failed to ingest %s: %s", file_path, e)
+
+
 def _find_transcript(session_id: str) -> str | None:
     import os
     # CLAUDE_PROJECTS_ROOT must be set to the host path that was volume-mounted.
@@ -122,14 +162,11 @@ def _find_transcript(session_id: str) -> str | None:
 
 async def _generate_summary(session_id: str, transcript_path: str) -> None:
     try:
-        session = db.get_session(session_id)
-        if session and session.get("summary_source") == "user":
-            return
         loop = asyncio.get_event_loop()
         summary = await loop.run_in_executor(None, summarise, transcript_path)
         if summary:
-            db.update_summary(session_id, summary, source="auto")
-            logger.info("Summary updated for session %s", session_id)
+            db.add_summary(session_id, summary, source="auto")
+            logger.info("Summary added for session %s", session_id)
     except Exception as e:
         logger.warning("Summary task failed for %s: %s", session_id, e)
 
@@ -165,13 +202,22 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+@app.get("/api/sessions/{session_id}/summaries")
+def get_summaries(session_id: str) -> list[dict]:
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return db.get_summaries(session_id)
+
+
 @app.patch("/api/sessions/{session_id}")
 def patch_session(session_id: str, patch: SessionPatch) -> dict:
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if patch.summary is not None:
-        db.update_summary(session_id, patch.summary, source="user")
+        # User edits create a new history entry rather than silently overwriting
+        db.add_summary(session_id, patch.summary, source="user")
     if patch.notes is not None:
         db.update_notes(session_id, patch.notes)
     return {"ok": True}

@@ -25,6 +25,18 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 """
 
+_SUMMARIES_SQL = """
+CREATE TABLE IF NOT EXISTS session_summaries (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    text        TEXT NOT NULL,
+    file_path   TEXT,
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+);
+"""
+
 _SETTINGS_SQL = """
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -42,6 +54,7 @@ _MIGRATIONS = [
     "ALTER TABLE sessions ADD COLUMN pid INTEGER;",
     "ALTER TABLE sessions ADD COLUMN notes TEXT;",
     "ALTER TABLE sessions ADD COLUMN iterm_session_uuid TEXT;",
+    # session_summaries created via _SUMMARIES_SQL on init — no ALTER needed
 ]
 
 
@@ -53,13 +66,13 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _conn() as conn:
         conn.execute(_CREATE_SQL)
+        conn.execute(_SUMMARIES_SQL)
         conn.execute(_SETTINGS_SQL)
         for sql in _MIGRATIONS:
             try:
                 conn.execute(sql)
             except Exception:
                 pass
-        # Seed defaults (INSERT OR IGNORE — never overwrite user values)
         for k, v in _SETTINGS_DEFAULTS.items():
             conn.execute(
                 "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v)
@@ -70,6 +83,7 @@ def init_db() -> None:
 def _conn() -> Generator[sqlite3.Connection, None, None]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     try:
         yield conn
         conn.commit()
@@ -93,9 +107,6 @@ def upsert_heartbeat(
             "SELECT session_id FROM sessions WHERE session_id = ?", (session_id,)
         ).fetchone()
         if existing:
-            # Only update iterm_tab from heartbeat if the session has no UUID yet
-            # (once sync_iterm_tabs.py has run and stored a UUID, the alias is
-            # authoritative and heartbeat osascript names should not overwrite it)
             uuid_known = conn.execute(
                 "SELECT iterm_session_uuid FROM sessions WHERE session_id = ?", (session_id,)
             ).fetchone()[0]
@@ -132,7 +143,53 @@ def record_stop(session_id: str, stop_reason: str) -> None:
         )
 
 
+def add_summary(
+    session_id: str,
+    text: str,
+    source: str = "auto",
+    file_path: str | None = None,
+) -> int:
+    """Append a new summary entry. Updates the sessions.summary cache. Returns new row id."""
+    now = _now()
+    with _conn() as conn:
+        cursor = conn.execute(
+            """INSERT INTO session_summaries (session_id, created_at, source, text, file_path)
+               VALUES (?, ?, ?, ?, ?)""",
+            (session_id, now, source, text, file_path),
+        )
+        row_id = cursor.lastrowid
+        # Keep sessions.summary as a display cache of the latest entry
+        conn.execute(
+            "UPDATE sessions SET summary = ?, summary_source = ? WHERE session_id = ?",
+            (text, source, session_id),
+        )
+    return row_id
+
+
+def get_summaries(session_id: str) -> list[dict]:
+    """Return all summary entries for a session, newest first."""
+    with _conn() as conn:
+        rows = conn.execute(
+            """SELECT id, session_id, created_at, source, text, file_path
+               FROM session_summaries
+               WHERE session_id = ?
+               ORDER BY created_at DESC""",
+            (session_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def summary_file_already_ingested(file_path: str) -> bool:
+    """True if this file_path has already been stored in session_summaries."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM session_summaries WHERE file_path = ?", (file_path,)
+        ).fetchone()
+    return row is not None
+
+
 def update_summary(session_id: str, summary: str, source: str = "auto") -> None:
+    """Legacy: update sessions.summary cache only (no history row). Kept for backfill compat."""
     with _conn() as conn:
         conn.execute(
             "UPDATE sessions SET summary = ?, summary_source = ? WHERE session_id = ?",
@@ -150,6 +207,7 @@ def touch_session(session_id: str) -> None:
 
 def delete_session(session_id: str) -> None:
     with _conn() as conn:
+        # CASCADE deletes session_summaries rows too
         conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
 
 
@@ -180,7 +238,7 @@ def list_sessions(include_stale: bool = True) -> list[dict]:
 def get_settings() -> dict:
     with _conn() as conn:
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
-    result = dict(_SETTINGS_DEFAULTS)  # start with defaults
+    result = dict(_SETTINGS_DEFAULTS)
     result.update({r["key"]: r["value"] for r in rows})
     return {k: int(v) for k, v in result.items()}
 
