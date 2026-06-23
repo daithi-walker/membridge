@@ -11,7 +11,7 @@ PROJECT_ID = os.getenv("ANTHROPIC_VERTEX_PROJECT_ID", "") or os.getenv("VERTEX_P
 REGION = os.getenv("CLOUD_ML_REGION", "") or os.getenv("VERTEX_REGION", "global")
 # Vertex uses @-format model IDs; Anthropic API uses dash-format
 _DEFAULT_MODEL = "claude-haiku-4-5@20251001" if USE_VERTEX else "claude-haiku-4-5-20251001"
-MODEL = os.getenv("CLAUDE_SUMMARY_MODEL", _DEFAULT_MODEL)
+MODEL = os.getenv("CLAUDE_SUMMARY_MODEL") or _DEFAULT_MODEL
 MAX_TURNS = 20  # last N turns to include in summary prompt
 
 
@@ -24,10 +24,10 @@ def _get_client():
 
 SYSTEM_PROMPT = (
     "You are a concise technical assistant. "
-    "Given a Claude Code session transcript, summarise in exactly 2 sentences: "
-    "what the session was working on, and where it got to. "
-    "Be specific — name the files, features, or bugs involved. "
-    "Do not start with 'The session' or 'This session'."
+    "Given a Claude Code session transcript, output a single short phrase (under 80 chars) "
+    "describing what the session worked on. "
+    "Wrap it in square brackets, e.g. [Fix heartbeat upsert in db.py] or [Add GCS streaming upload]. "
+    "Be specific — name files, features, or bugs. Output only the bracketed phrase, nothing else."
 )
 
 
