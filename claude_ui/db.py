@@ -18,8 +18,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     first_seen      TEXT NOT NULL,
     last_seen       TEXT NOT NULL,
     last_stop_reason TEXT,
-    summary         TEXT,
-    summary_source  TEXT DEFAULT 'auto',
+    description     TEXT,
     prompt_count    INTEGER NOT NULL DEFAULT 0,
     notes           TEXT
 );
@@ -54,7 +53,10 @@ _MIGRATIONS = [
     "ALTER TABLE sessions ADD COLUMN pid INTEGER;",
     "ALTER TABLE sessions ADD COLUMN notes TEXT;",
     "ALTER TABLE sessions ADD COLUMN iterm_session_uuid TEXT;",
-    # session_summaries created via _SUMMARIES_SQL on init — no ALTER needed
+    # Rename summary → description (SQLite lacks RENAME COLUMN before 3.25; use ADD + copy)
+    "ALTER TABLE sessions ADD COLUMN description TEXT;",
+    "UPDATE sessions SET description = summary WHERE description IS NULL AND summary IS NOT NULL;",
+    # summary_source column is obsolete — SQLite can't DROP columns cleanly, just leave it
 ]
 
 
@@ -149,7 +151,7 @@ def add_summary(
     source: str = "auto",
     file_path: str | None = None,
 ) -> int:
-    """Append a new summary entry. Updates the sessions.summary cache. Returns new row id."""
+    """Append a new entry to session_summaries. Only auto-source updates sessions.description."""
     now = _now()
     with _conn() as conn:
         cursor = conn.execute(
@@ -158,11 +160,10 @@ def add_summary(
             (session_id, now, source, text, file_path),
         )
         row_id = cursor.lastrowid
-        # sessions.summary is the short AI description — only auto-source updates it
         if source == "auto":
             conn.execute(
-                "UPDATE sessions SET summary = ?, summary_source = ? WHERE session_id = ?",
-                (text, source, session_id),
+                "UPDATE sessions SET description = ? WHERE session_id = ?",
+                (text, session_id),
             )
     return row_id
 
@@ -189,12 +190,12 @@ def summary_file_already_ingested(file_path: str) -> bool:
     return row is not None
 
 
-def update_summary(session_id: str, summary: str, source: str = "auto") -> None:
-    """Legacy: update sessions.summary cache only (no history row). Kept for backfill compat."""
+def update_description(session_id: str, description: str) -> None:
+    """Legacy: update sessions.description only (no history row). Kept for backfill compat."""
     with _conn() as conn:
         conn.execute(
-            "UPDATE sessions SET summary = ?, summary_source = ? WHERE session_id = ?",
-            (summary, source, session_id),
+            "UPDATE sessions SET description = ? WHERE session_id = ?",
+            (description, session_id),
         )
 
 

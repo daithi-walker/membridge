@@ -233,7 +233,7 @@ function buildRow(s) {
 
   const descTd = td('col-desc');
   descTd.style.cssText = 'font-size:12px;color:var(--text-muted);overflow:hidden;max-height:2.8em';
-  descTd.textContent = s.summary ? stripMd(s.summary).slice(0, 140) + (stripMd(s.summary).length > 140 ? '…' : '') : '';
+  descTd.textContent = s.description ? stripMd(s.description).slice(0, 140) + (stripMd(s.description).length > 140 ? '…' : '') : '';
   tr.appendChild(descTd);
 
   const chevTd = td('col-chevron');
@@ -271,7 +271,7 @@ function openPanel(s, scrollIntoView) {
   document.getElementById('panel-first').textContent = formatDateTime(s.first_seen);
   document.getElementById('panel-last').textContent = relativeTime(s.last_seen);
   document.getElementById('panel-prompts').textContent = s.prompt_count;
-  renderMarkdown(document.getElementById('panel-summary'), s.summary || '');
+  renderMarkdown(document.getElementById('panel-summary'), s.description || '');
 
   const focusBtn = document.getElementById('panel-focus-btn');
   focusBtn.textContent = s.pid ? '⌘ Focus' : '⌘ Open';
@@ -443,7 +443,7 @@ document.getElementById('panel-summary').addEventListener('click', function() {
 });
 
 function startPanelSummaryEdit(s, el) {
-  const orig = s.summary || '';
+  const orig = s.description || '';
   const textarea = document.createElement('textarea');
   textarea.className = 'summary-edit panel-summary-edit';
   textarea.value = orig;
@@ -456,10 +456,10 @@ function startPanelSummaryEdit(s, el) {
       await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ summary: newSummary }),
+        body: JSON.stringify({ description: newSummary }),
       });
-      s.summary = newSummary;
-      s.summary_source = 'user';
+      s.description = newSummary;
+      s.description_source = 'user';
       await loadHistory(s.session_id);
     }
     const newEl = makeSummaryEl(s);
@@ -477,7 +477,7 @@ function makeSummaryEl(s) {
   el.id = 'panel-summary';
   el.className = 'panel-summary-text';
   el.title = 'Click to edit';
-  renderMarkdown(el, s.summary || '');
+  renderMarkdown(el, s.description || '');
   el.addEventListener('click', function() { startPanelSummaryEdit(s, this); });
   return el;
 }

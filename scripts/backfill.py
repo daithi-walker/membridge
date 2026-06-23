@@ -164,7 +164,7 @@ def main() -> None:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     os.environ.setdefault("MEMBRIDGE_DB", str(MEMBRIDGE_DB))
 
-    from claude_ui.db import init_db, upsert_heartbeat, update_summary, record_stop
+    from claude_ui.db import init_db, upsert_heartbeat, update_description, record_stop
     import sqlite3
 
     init_db()
@@ -193,7 +193,7 @@ def main() -> None:
         # Use ai-title as summary if present and no summary yet
         if s["ai_title"]:
             summary_label = f"[{s['ai_title']}]"
-            update_summary(s["session_id"], summary_label, source="backfill")
+            update_description(s["session_id"], summary_label, )
             updated_summary += 1
 
         imported += 1
@@ -214,7 +214,7 @@ def main() -> None:
                 continue
             summary = summarise(s["transcript_path"])
             if summary:
-                update_summary(s["session_id"], summary, source="auto")
+                update_description(s["session_id"], summary, )
                 print(f"  ✓ {s['session_id'][:8]}… {summary[:80]}")
 
 

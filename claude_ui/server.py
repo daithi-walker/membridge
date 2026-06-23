@@ -50,7 +50,7 @@ class StopPayload(BaseModel):
 
 
 class SessionPatch(BaseModel):
-    summary: str | None = None
+    description: str | None = None
     notes: str | None = None
 
 
@@ -215,9 +215,8 @@ def patch_session(session_id: str, patch: SessionPatch) -> dict:
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if patch.summary is not None:
-        # User edits create a new history entry rather than silently overwriting
-        db.add_summary(session_id, patch.summary, source="user")
+    if patch.description is not None:
+        db.update_description(session_id, patch.description)
     if patch.notes is not None:
         db.update_notes(session_id, patch.notes)
     return {"ok": True}
