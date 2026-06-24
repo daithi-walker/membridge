@@ -65,6 +65,22 @@ curl http://localhost:7842/api/sessions | python3 -c "import sys,json; s=json.lo
 
 ---
 
+## 2026-06-24 — /membridge-tag slash command
+
+**No breaking changes — run `install.sh` to get the new command, or copy manually:**
+```bash
+cp commands/membridge-tag.md ~/.claude/commands/membridge-tag.md
+```
+Then restart Claude Code to pick it up.
+
+### What changed
+
+- `/membridge-tag <text>` — sets the session description instantly via `PATCH /api/sessions/{id}`
+- Use it at the start of a session to label what you're working on before auto-summary kicks in
+- Claude can also call it to self-tag its own sessions
+
+---
+
 ## 2026-06-23 — UI cleanup + session ID column + bug fixes
 
 **No breaking changes — `git pull` is sufficient.**

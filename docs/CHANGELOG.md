@@ -6,6 +6,7 @@ Completed work, newest first.
 
 ## 2026-06
 
+- `/membridge-tag <text>` slash command — set or update session description instantly; Claude can self-tag its own sessions
 - Activity column and vestigial › chevron removed; Description column fills remaining width
 - Session ID as separate column (short 8-char prefix); click to copy full UUID to clipboard
 - Modal: copy button (⎘) next to full session ID in header
