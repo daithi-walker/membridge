@@ -295,7 +295,7 @@
     }
 
     #sessions-table { table-layout: fixed; width: 100%; }
-    .col-desc    { min-width: 120px; }
+    .col-desc    { width: 99%; min-width: 120px; }
     th { position: relative; }
     .col-resize-handle {
       position: absolute; right: 0; top: 0; bottom: 0;
@@ -870,11 +870,11 @@
           <tr>
             <th class="col-status">Status<span class="col-resize-handle" data-col="col-status"></span></th>
             <th class="col-project">Project<span class="col-resize-handle" data-col="col-project"></span></th>
-            <th class="col-id">ID<span class="col-resize-handle" data-col="col-id"></span></th>
+            <th class="col-desc">Description<span class="col-resize-handle" data-col="col-desc"></span></th>
             <th class="col-branch">Branch<span class="col-resize-handle" data-col="col-branch"></span></th>
             <th class="col-last">Last Active<span class="col-resize-handle" data-col="col-last"></span></th>
+            <th class="col-id">ID<span class="col-resize-handle" data-col="col-id"></span></th>
             <th class="col-prompts">Prompts<span class="col-resize-handle" data-col="col-prompts"></span></th>
-            <th class="col-desc">Description<span class="col-resize-handle" data-col="col-desc"></span></th>
           </tr>
         </thead>
         <tbody id="sessions-body"></tbody>

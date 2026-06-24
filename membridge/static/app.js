@@ -430,6 +430,20 @@ function buildRow(s) {
   projTd.textContent = s.project_name;
   tr.appendChild(projTd);
 
+  const descTd = td('col-desc');
+  descTd.style.cssText = 'font-size:12px;color:var(--text-muted)';
+  const _desc = s.description ? stripMd(s.description) : '';
+  descTd.textContent = _desc.slice(0, 100) + (_desc.length > 100 ? '…' : '');
+  tr.appendChild(descTd);
+
+  const branchTd = td('col-branch');
+  branchTd.innerHTML = `<span class="branch-text">${esc(s.git_branch || '—')}</span>`;
+  tr.appendChild(branchTd);
+
+  const lastTd = td('col-last');
+  lastTd.innerHTML = `<span class="last-text" title="${esc(s.last_seen)}">${relativeTime(s.last_seen)}</span>`;
+  tr.appendChild(lastTd);
+
   const idTd = td('col-id');
   const shortId = s.session_id.slice(0, 8);
   idTd.innerHTML = `<span class="session-id" title="Click to copy full session ID">${esc(shortId)}…</span>`;
@@ -444,23 +458,9 @@ function buildRow(s) {
   });
   tr.appendChild(idTd);
 
-  const branchTd = td('col-branch');
-  branchTd.innerHTML = `<span class="branch-text">${esc(s.git_branch || '—')}</span>`;
-  tr.appendChild(branchTd);
-
-  const lastTd = td('col-last');
-  lastTd.innerHTML = `<span class="last-text" title="${esc(s.last_seen)}">${relativeTime(s.last_seen)}</span>`;
-  tr.appendChild(lastTd);
-
   const countTd = td('col-prompts');
   countTd.innerHTML = `<span class="count-text">${s.prompt_count}</span>`;
   tr.appendChild(countTd);
-
-  const descTd = td('col-desc');
-  descTd.style.cssText = 'font-size:12px;color:var(--text-muted)';
-  const _desc = s.description ? stripMd(s.description) : '';
-  descTd.textContent = _desc.slice(0, 100) + (_desc.length > 100 ? '…' : '');
-  tr.appendChild(descTd);
 
   tr.addEventListener('click', () => openPanel(s, true));
   tr.style.cursor = 'pointer';
