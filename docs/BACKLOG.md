@@ -31,6 +31,20 @@ Design:
 - Guard: check session is still `awaiting_input` before writing — avoid injecting into an active response
 - Inline focus button in table row turns amber when `awaiting_input`
 
+### 3. Clickable macOS notifications via terminal-notifier
+
+Replace `osascript display notification` with `terminal-notifier` (Homebrew) so notifications:
+- Are clickable and focus the correct iTerm2 tab
+- Work reliably from launchd context (osascript notifications can be suppressed there)
+
+Swap `_notify_stop()` in `server.py` to call `terminal-notifier` with `-execute` osascript, fall back to plain osascript if not installed.
+
+### 3. Show model name per session
+
+Capture the Claude model from hook payloads (`model` field in some events), store in `sessions` table, surface as a tooltip or small tag in the dashboard row.
+
+Small migration: one new column, one extra field in heartbeat extraction.
+
 ### 3. Column resize lag
 
 Resizable columns work (no jump) but the column lags behind the cursor during drag. Cause likely: `table-layout: fixed` column width negotiation between header and body cells even when only setting `th` width. Possible fix: use a `<col>` element per column and set width on that instead of on `th`/`td` directly — `colgroup`/`col` is the correct CSS hook for fixed table column widths.
