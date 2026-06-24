@@ -7,7 +7,7 @@ Completed work, newest first.
 ## 2026-06
 
 - Mobile card view — below 768px, table is replaced by stacked cards showing status icon, focus button, project, status pill, description, branch, last active, and short ID; modal slides up as bottom sheet on mobile
-- Mobile: pull-to-refresh works (browser native gesture); `window.location.origin` replaces hardcoded `localhost:7842` so focus/sync work from LAN (phone)
+- Mobile: pull-to-refresh works (browser native gesture); `window.location.origin` replaces hardcoded `localhost:7842` so focus/sync work from LAN (phone); fixed single-quote bug from revert that was sending literal `${BASE}` as the URL
 - Mobile: modal sheet uses `92dvh` so Chrome iOS persistent toolbars do not clip the top; drag handle pill + larger ✕ button for close affordance; home indicator safe area padding on card list
 - Inline description editing in table row — click description cell, type, Enter to save, Escape to revert; row click still opens modal
 - Column resize rewritten — widths driven by `<colgroup><col>` elements; resizing one column never shifts others; table scrolls horizontally if needed; drag target is right edge of any header
