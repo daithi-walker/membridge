@@ -251,8 +251,11 @@
     td { padding: 10px 16px; vertical-align: top; }
 
     /* column widths are set via <col> elements — JS controls them */
-    .col-status, .col-project, .col-desc, .col-branch,
-    .col-last, .col-id, .col-prompts { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    /* overflow:hidden only on td — th needs visible overflow so the ::after resize handle isn't clipped */
+    th.col-status, th.col-project, th.col-desc, th.col-branch,
+    th.col-last, th.col-id, th.col-prompts { white-space: nowrap; overflow: visible; }
+    td.col-status, td.col-project, td.col-desc, td.col-branch,
+    td.col-last, td.col-id, td.col-prompts { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .col-prompts { text-align: right; }
 
     .btn-star {
@@ -296,7 +299,7 @@
     th { position: relative; user-select: none; }
     th::after {
       content: ''; position: absolute; right: 0; top: 20%; bottom: 20%;
-      width: 4px; cursor: col-resize;
+      width: 8px; cursor: col-resize;
       border-right: 2px solid transparent;
       transition: border-color 0.15s;
     }

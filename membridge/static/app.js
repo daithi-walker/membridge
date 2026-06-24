@@ -1080,9 +1080,9 @@ function initColResize() {
     if (!col) return;
 
     th.addEventListener('mousedown', e => {
-      // Only trigger on right 8px of the header (use clientX vs bounding rect — more reliable on sticky headers)
+      // Only trigger on right 12px of the header
       const rect = th.getBoundingClientRect();
-      if (e.clientX < rect.right - 8) return;
+      if (e.clientX < rect.right - 12) return;
       e.preventDefault();
       const startW = colWidths[col] || rect.width;
       const startX = e.clientX;
@@ -1109,7 +1109,7 @@ function initColResize() {
     // Pointer cursor on right edge
     th.addEventListener('mousemove', e => {
       const rect = th.getBoundingClientRect();
-      th.style.cursor = e.clientX >= rect.right - 8 ? 'col-resize' : '';
+      th.style.cursor = e.clientX >= rect.right - 12 ? 'col-resize' : '';
     });
     th.addEventListener('mouseleave', () => { th.style.cursor = ''; });
   });
