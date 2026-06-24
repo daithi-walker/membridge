@@ -30,11 +30,15 @@ commands/
   membridge-context.md     /membridge-context slash command
 
 docs/
-  ARCHITECTURE.md   System design and data model
-  CHANGELOG.md      Feature history (newest first)
-  RELEASES.md       Migration notes for breaking changes
-  BACKLOG.md        Planned features
-  adr/              Architecture Decision Records (001–009)
+  ARCHITECTURE.md      System design and data model
+  CHANGELOG.md         Feature history (newest first)
+  RELEASES.md          Migration notes for breaking changes
+  BACKLOG.md           Planned features
+  CODING_STANDARDS.md  Security, error handling, testing, and style rules
+  adr/                 Architecture Decision Records (001–012)
+
+tests/
+  test_db.py        DB unit tests (pytest, in-memory SQLite)
 ```
 
 ## After pulling new code
@@ -62,6 +66,10 @@ curl http://localhost:7842/api/sessions                     # health check
 ```
 
 ## Making changes
+
+Before writing code, read `docs/CODING_STANDARDS.md` — it documents required patterns for security (AppleScript injection, XSS, SRI hashes), error handling (toast on save failure, task done-callbacks), DB conventions (TypedDict, migrations), and testing.
+
+Run `uv run pytest` and `uv run ruff check .` before committing.
 
 ### Static files (index.html, app.js)
 No rebuild needed — editable install means changes are live on browser refresh.

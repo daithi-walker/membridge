@@ -13,8 +13,8 @@ Usage (called as a subprocess by sync_iterm_tabs.py):
     /path/to/iterm2env python3 _iterm2_query.py
 """
 
-import asyncio
 import json
+
 import iterm2
 
 

@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from membridge import db
-from membridge.summariser import _get_client, MODEL
+from membridge.summariser import MODEL, _get_client
 
 
 def condense(text: str) -> str | None:
