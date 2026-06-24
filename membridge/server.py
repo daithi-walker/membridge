@@ -283,18 +283,22 @@ def sessions() -> list[dict]:
     rows = db.list_sessions()
     now = datetime.now(UTC)
     settings = db.get_settings()
+    result: list[dict] = []
     for row in rows:
+        d = dict(row)
         status = _compute_status(
-            row["last_seen"], now,
+            str(d["last_seen"]), now,
             settings["active_threshold_secs"],
             settings["idle_threshold_secs"],
         )
         # If timestamp says stale but PID is still alive, floor to idle
-        if status == "stale" and row.get("pid"):
-            if _pid_alive(row["pid"]):
+        pid = d.get("pid")
+        if status == "stale" and isinstance(pid, int):
+            if _pid_alive(pid):
                 status = "idle"
-        row["status"] = status
-    return rows
+        d["status"] = status
+        result.append(d)
+    return result
 
 
 def _pid_alive(pid: int) -> bool:

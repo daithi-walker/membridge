@@ -35,6 +35,7 @@ docs/
   RELEASES.md          Migration notes for breaking changes
   BACKLOG.md           Planned features
   CODING_STANDARDS.md  Security, error handling, testing, and style rules
+  COVERAGE.md          Test coverage baselines and improvement targets per release
   adr/                 Architecture Decision Records (001–012)
 
 tests/

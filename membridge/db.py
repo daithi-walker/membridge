@@ -212,7 +212,7 @@ def add_summary(
     text: str,
     source: str = "auto",
     file_path: str | None = None,
-) -> int:
+) -> int | None:
     """Append a new entry to session_summaries. Only auto-source updates sessions.description."""
     now = _now()
     with _conn() as conn:

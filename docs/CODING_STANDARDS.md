@@ -78,6 +78,7 @@ Derived from the quality review of 2026-06-23. These standards apply to all code
 - Tests live in `tests/` and use pytest with in-memory or temp-file SQLite (via `monkeypatch.setattr(db, "DB_PATH", ...)`) — **never** the production DB.
 - Every documented feature in `docs/CHANGELOG.md` that has DB-layer behaviour should have at least one test.
 - Tests are run with `uv run pytest`.
+- Coverage is tracked in `docs/COVERAGE.md`. Update it on each significant release. Do not let total coverage drop more than 2% without documenting why.
 
 ### Frontend
 - Playwright-based tests live in `tests/frontend/` (to be added — see BACKLOG).

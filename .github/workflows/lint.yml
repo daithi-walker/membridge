@@ -17,5 +17,7 @@ jobs:
         run: uv sync --extra dev
       - name: Lint (ruff)
         run: uv run ruff check .
-      - name: Test (pytest)
-        run: uv run pytest
+      - name: Type check (mypy)
+        run: uv run mypy
+      - name: Test with coverage (pytest)
+        run: uv run pytest --cov --cov-report=term-missing
