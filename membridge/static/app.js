@@ -112,7 +112,10 @@ projFilterBtn.addEventListener('click', e => {
   const open = projFilterDropdown.style.display !== 'none';
   projFilterDropdown.style.display = open ? 'none' : 'block';
 });
-document.addEventListener('click', () => { projFilterDropdown.style.display = 'none'; });
+document.addEventListener('click', () => {
+  projFilterDropdown.style.display = 'none';
+  showFilterDropdown.style.display = 'none';
+});
 projFilterDropdown.addEventListener('click', e => e.stopPropagation());
 
 document.getElementById('proj-select-all').addEventListener('click', () => {
