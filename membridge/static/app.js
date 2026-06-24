@@ -161,11 +161,11 @@ async function openSettings() {
     document.getElementById('set-active').value = s.active_threshold_secs;
     document.getElementById('set-idle').value = s.idle_threshold_secs;
     document.getElementById('set-refresh').value = s.refresh_interval_secs;
+    document.getElementById('set-notif-popup').checked = !!s.notif_popup;
+    document.getElementById('set-notif-sound').checked = !!s.notif_sound;
   } catch (e) {
     console.error('Failed to load settings', e);
   }
-  document.getElementById('set-notif-popup').checked = localStorage.getItem('mb-notif-popup') !== 'false';
-  document.getElementById('set-notif-sound').checked = localStorage.getItem('mb-notif-sound') !== 'false';
   settingsOverlay.classList.add('open');
 }
 
@@ -429,6 +429,10 @@ function buildRow(s) {
   const projTd = td('col-project');
   projTd.textContent = s.project_name;
   tr.appendChild(projTd);
+
+  const itermTd = td('col-iterm');
+  itermTd.innerHTML = `<span class="iterm-text" style="font-size:12px;color:var(--text-muted)">${esc(s.iterm_tab || '—')}</span>`;
+  tr.appendChild(itermTd);
 
   const descTd = td('col-desc');
   descTd.style.cssText = 'font-size:12px;color:var(--text-muted)';
@@ -883,6 +887,7 @@ const COL_WIDTHS_KEY = 'membridge_col_widths';
 const COL_DEFAULTS = {
   'col-status':  160,
   'col-project': 120,
+  'col-iterm':   200,
   'col-desc':    320,
   'col-branch':  140,
   'col-last':    110,

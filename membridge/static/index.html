@@ -251,7 +251,7 @@
     td { padding: 10px 16px; vertical-align: top; }
 
     /* column widths are set via <col> elements — JS controls them */
-    .col-status, .col-project, .col-desc, .col-branch,
+    .col-status, .col-project, .col-iterm, .col-desc, .col-branch,
     .col-last, .col-id, .col-prompts { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .col-prompts { text-align: right; }
 
@@ -866,6 +866,7 @@
         <colgroup>
           <col data-col="col-status">
           <col data-col="col-project">
+          <col data-col="col-iterm">
           <col data-col="col-desc">
           <col data-col="col-branch">
           <col data-col="col-last">
@@ -876,6 +877,7 @@
           <tr>
             <th class="col-status">Status</th>
             <th class="col-project">Project</th>
+            <th class="col-iterm">Activity</th>
             <th class="col-desc">Description</th>
             <th class="col-branch">Branch</th>
             <th class="col-last">Last Active</th>
