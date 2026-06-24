@@ -250,13 +250,10 @@
     th, td { box-sizing: border-box; }
     td { padding: 10px 16px; vertical-align: top; }
 
-    .col-status  { width: 160px; white-space: nowrap; }
-    .col-project { width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .col-id      { width: 90px; white-space: nowrap; }
-    .col-branch  { width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .col-last    { width: 100px; white-space: nowrap; }
-    .col-prompts { width: 64px; text-align: right; }
-    .col-desc    { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    /* column widths are set via <col> elements — JS controls them */
+    .col-status, .col-project, .col-desc, .col-branch,
+    .col-last, .col-id, .col-prompts { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .col-prompts { text-align: right; }
 
     .btn-star {
       background: none; border: none; cursor: pointer;
@@ -294,18 +291,17 @@
       50% { opacity: 0.45; }
     }
 
-    #sessions-table { table-layout: fixed; width: 100%; }
-    .col-desc    { width: 99%; min-width: 120px; }
-    th { position: relative; }
-    .col-resize-handle {
-      position: absolute; right: 0; top: 0; bottom: 0;
-      width: 6px; cursor: col-resize;
-      user-select: none;
+    #sessions-table-wrap { overflow-x: auto; }
+    #sessions-table { table-layout: fixed; width: max-content; min-width: 100%; }
+    th { position: relative; user-select: none; }
+    th::after {
+      content: ''; position: absolute; right: 0; top: 20%; bottom: 20%;
+      width: 4px; cursor: col-resize;
+      border-right: 2px solid transparent;
+      transition: border-color 0.15s;
     }
-    .col-resize-handle:hover, .col-resize-handle.dragging {
-      background: var(--accent, #E4A636);
-      opacity: 0.6;
-    }
+    th:hover::after { border-color: var(--border); }
+    th.col-resizing::after { border-color: var(--accent, #E4A636); }
 
     .project-name { font-weight: 600; color: var(--text); }
     .session-id   { font-family: monospace; font-size: 10px; color: var(--text-muted); margin-top: 2px; cursor: pointer; }
@@ -865,20 +861,31 @@
         <span><span style="color:#E4A636;font-weight:700">↩</span> Session stale — resume</span>
         <span><span style="color:var(--text-muted);font-weight:700">⌘</span> Idle</span>
       </div>
+      <div id="sessions-table-wrap">
       <table id="sessions-table" style="display:none">
+        <colgroup>
+          <col data-col="col-status">
+          <col data-col="col-project">
+          <col data-col="col-desc">
+          <col data-col="col-branch">
+          <col data-col="col-last">
+          <col data-col="col-id">
+          <col data-col="col-prompts">
+        </colgroup>
         <thead>
           <tr>
-            <th class="col-status">Status<span class="col-resize-handle" data-col="col-status"></span></th>
-            <th class="col-project">Project<span class="col-resize-handle" data-col="col-project"></span></th>
-            <th class="col-desc">Description<span class="col-resize-handle" data-col="col-desc"></span></th>
-            <th class="col-branch">Branch<span class="col-resize-handle" data-col="col-branch"></span></th>
-            <th class="col-last">Last Active<span class="col-resize-handle" data-col="col-last"></span></th>
-            <th class="col-id">ID<span class="col-resize-handle" data-col="col-id"></span></th>
-            <th class="col-prompts">Prompts<span class="col-resize-handle" data-col="col-prompts"></span></th>
+            <th class="col-status">Status</th>
+            <th class="col-project">Project</th>
+            <th class="col-desc">Description</th>
+            <th class="col-branch">Branch</th>
+            <th class="col-last">Last Active</th>
+            <th class="col-id">ID</th>
+            <th class="col-prompts">Prompts</th>
           </tr>
         </thead>
         <tbody id="sessions-body"></tbody>
       </table>
+      </div>
       <div id="empty-state" style="display:none">
         <p>No sessions yet. Claude Code sessions appear here automatically once the hooks are installed.</p>
         <code>Run scripts/install.sh to get started</code>

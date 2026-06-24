@@ -493,7 +493,9 @@ function openPanel(s, scrollIntoView) {
   document.getElementById('panel-first').textContent = formatDateTime(s.first_seen);
   document.getElementById('panel-last').textContent = relativeTime(s.last_seen);
   document.getElementById('panel-prompts').textContent = s.prompt_count;
-  renderMarkdown(document.getElementById('panel-summary'), s.description || '');
+  const existingSummaryEl = document.getElementById('panel-summary');
+  const newSummaryEl = makeSummaryEl(s);
+  existingSummaryEl.replaceWith(newSummaryEl);
 
   const focusBtn = document.getElementById('panel-focus-btn');
   const focusLabel = () => s.status === 'stale' ? '↩ Resume' : '⌘ Focus';
@@ -739,12 +741,14 @@ async function saveNotes(textarea) {
 
 document.getElementById('panel-summary').addEventListener('click', function() {
   const s = sessions.find(x => x.session_id === activePanel);
-  if (!s) return;
+  if (!s || !activePanel) return;
   startPanelSummaryEdit(s, this);
 });
 
 function startPanelSummaryEdit(s, el) {
-  const orig = s.description || '';
+  // Re-read from sessions array by session_id to avoid stale closure
+  const fresh = sessions.find(x => x.session_id === s.session_id) || s;
+  const orig = fresh.description || '';
   const textarea = document.createElement('textarea');
   textarea.className = 'summary-edit panel-summary-edit';
   textarea.value = orig;
@@ -831,8 +835,20 @@ function formatDateTime(isoStr) {
 }
 
 // ── Column resize ─────────────────────────────────────────────────────────────
+// Widths are set on <col> elements — table is width:max-content so resizing
+// one column never affects another. Container scrolls horizontally if needed.
 
 const COL_WIDTHS_KEY = 'membridge_col_widths';
+const COL_DEFAULTS = {
+  'col-status':  160,
+  'col-project': 120,
+  'col-desc':    320,
+  'col-branch':  140,
+  'col-last':    110,
+  'col-id':       96,
+  'col-prompts':  70,
+};
+
 let colWidths = {};
 
 function loadColWidths() {
@@ -844,38 +860,37 @@ function saveColWidths() {
 }
 
 function applyColWidths() {
-  for (const [col, w] of Object.entries(colWidths)) {
-    document.querySelectorAll(`th.${col}`).forEach(el => { el.style.width = w + 'px'; });
-  }
+  document.querySelectorAll('#sessions-table colgroup col').forEach(col => {
+    const key = col.dataset.col;
+    if (colWidths[key]) col.style.width = colWidths[key] + 'px';
+  });
 }
 
 function initColResize() {
-  // Snapshot all default widths from DOM first, then overlay saved values
-  document.querySelectorAll('.col-resize-handle').forEach(handle => {
-    const col = handle.dataset.col;
-    const th = handle.closest('th');
-    colWidths[col] = th.getBoundingClientRect().width;
-  });
-  Object.assign(colWidths, loadColWidths());
+  colWidths = Object.assign({}, COL_DEFAULTS, loadColWidths());
   applyColWidths();
 
-  document.querySelectorAll('.col-resize-handle').forEach(handle => {
-    handle.addEventListener('mousedown', e => {
+  document.querySelectorAll('#sessions-table thead th').forEach(th => {
+    const col = th.className.match(/col-[\w]+/)?.[0];
+    if (!col) return;
+
+    th.addEventListener('mousedown', e => {
+      // Only trigger on right 6px of the header
+      if (e.offsetX < th.offsetWidth - 6) return;
       e.preventDefault();
-      const col = handle.dataset.col;
-      // Always use JS state — never read from DOM mid-session
-      const startW = colWidths[col];
+      const startW = colWidths[col] || th.getBoundingClientRect().width;
       const startX = e.clientX;
-      handle.classList.add('dragging');
+      th.classList.add('col-resizing');
 
       function onMove(e) {
         const w = Math.max(40, startW + e.clientX - startX);
         colWidths[col] = w;
-        document.querySelectorAll(`th.${col}`).forEach(el => { el.style.width = w + 'px'; });
+        const colEl = document.querySelector(`#sessions-table col[data-col="${col}"]`);
+        if (colEl) colEl.style.width = w + 'px';
       }
 
       function onUp() {
-        handle.classList.remove('dragging');
+        th.classList.remove('col-resizing');
         saveColWidths();
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
@@ -884,6 +899,12 @@ function initColResize() {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
+
+    // Pointer cursor on right edge
+    th.addEventListener('mousemove', e => {
+      th.style.cursor = e.offsetX >= th.offsetWidth - 6 ? 'col-resize' : '';
+    });
+    th.addEventListener('mouseleave', () => { th.style.cursor = ''; });
   });
 }
 
