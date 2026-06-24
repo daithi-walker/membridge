@@ -9,6 +9,33 @@ uv run pytest --cov --cov-report=term-missing
 
 ---
 
+## 2026-06-24 (focus, summariser, and server route coverage)
+
+90 tests across `test_db.py` (16), `test_server.py` (33), `test_focus.py` (27), `test_summariser.py` (14).
+
+| Module | Stmts | Miss | Cover | Notes |
+|--------|-------|------|-------|-------|
+| `membridge/__init__.py` | 0 | 0 | 100% | — |
+| `membridge/db.py` | 148 | 4 | **97%** | Lines 145-146 (update_notes), 291-292 (update_tickets) — unchanged |
+| `membridge/focus.py` | 77 | 0 | **100%** | All paths covered via mocked subprocess/os.kill |
+| `membridge/server.py` | 348 | 115 | **67%** | Lifespan/SSE stream/notify/_generate_summary still uncovered |
+| `membridge/summariser.py` | 73 | 10 | **86%** | Vertex AI branch and a few edge paths remain |
+| **TOTAL** | **646** | **129** | **80%** | +18pp from baseline |
+
+**Improvements vs baseline:**
+- `focus.py`: 31% → 100% (+69pp) — injection validators, pid_alive, pid_to_tty, all AppleScript path variants
+- `summariser.py`: 22% → 86% (+64pp) — transcript parsing, mocked Anthropic client, error paths
+- `server.py`: 62% → 67% (+5pp) — /focus, /rename, /sessions, /pid, /api/notification, /summaries routes added
+- Total: 62% → 80% (+18pp) — hit the 80%+ target
+
+**Remaining gaps in `server.py` (67%):**
+- SSE `/api/events` stream — requires async generator testing
+- `_generate_summary()` async task — requires mocking `summarise()` + asyncio task creation
+- `_notify_stop()` — requires mocking `subprocess.Popen`
+- `/sync-tabs` thread — requires mocking `subprocess.run`
+
+---
+
 ## Baseline — 2026-06-23 (quality review release)
 
 First test suite. 35 tests across `test_db.py` (16) and `test_server.py` (19).
@@ -26,28 +53,19 @@ First test suite. 35 tests across `test_db.py` (16) and `test_server.py` (19).
 
 ## Coverage improvement targets
 
-### `focus.py` (31% → target 70%+)
-All uncovered paths require mocking `subprocess.run` to simulate osascript responses. Priority:
-- `pid_to_tty()` — mock `ps` output
-- `pid_alive()` — mock `os.kill`
-- `focus_session()` — mock `_run()` to return "focused" / "not_found"
-- `rename_tab()`, `list_sessions()`, `is_session_frontmost()` — mock `_run()`
-- Injection validation paths — test that unsafe `cwd`/`session_id` values are rejected
+### `focus.py` — **100%** ✓ (achieved 2026-06-24)
 
-### `summariser.py` (22% → target 60%+)
-Requires mocking `anthropic.Anthropic()`. Priority:
-- `summarise()` with a mock transcript file
-- Empty/short transcript edge cases
-- API error / None return handling
-- Vertex AI branch (if `USE_VERTEX=1`)
+### `summariser.py` — **86%** ✓ (target was 60%+)
+Remaining 14%:
+- Vertex AI branch (`USE_VERTEX=1`) — untested; low priority unless Vertex is in active use
+- A few exception paths in `_read_transcript` (line 58/69 alternate content formats)
 
-### `server.py` (62% → target 80%+)
-Already well-covered for CRUD and state machine. Remaining gaps:
-- `/focus` and `/rename` routes — mock `_focus.focus_session()`
-- `/sync-tabs` — mock `subprocess.run`
-- `_generate_summary()` async task — mock `summarise()`
-- `_notify_stop()` — mock `subprocess.Popen`
-- SSE `/api/events` stream — requires async test client
+### `server.py` (67% → target 80%+)
+CRUD and state machine are well-covered. Remaining gaps:
+- `_generate_summary()` async task — mock `summarise()` + asyncio task
+- `_notify_stop()` — mock `subprocess.Popen`; test sound/no-sound and frontmost-session skip
+- SSE `/api/events` stream — requires async generator test client
+- `/sync-tabs` — mock `threading.Thread` / `subprocess.run`
 
 ---
 

@@ -206,3 +206,114 @@ def test_security_headers_present(client):
     assert res.headers.get("x-content-type-options") == "nosniff"
     assert res.headers.get("x-frame-options") == "DENY"
     assert res.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+
+
+# ── /focus route ──────────────────────────────────────────────────────────────
+# CHANGELOG: "4-state focus button: focused / opened / idle / stale — fires POST /focus"
+
+def test_focus_session_returns_action(client, monkeypatch):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp/proj", branch="main", iterm_tab=None)
+    monkeypatch.setattr("membridge.focus.focus_session", lambda **kw: "focused")
+    res = client.post("/focus", json={
+        "session_id": "s1",
+        "iterm_session_uuid": "UUID-1",
+        "cwd": "/tmp/proj",
+    })
+    assert res.status_code == 200
+    assert res.json() == {"ok": True, "action": "focused"}
+
+
+def test_focus_missing_session_id_returns_400(client):
+    res = client.post("/focus", json={"session_id": ""})
+    assert res.status_code == 400
+
+
+# ── /rename route ─────────────────────────────────────────────────────────────
+
+def test_rename_tab(client, monkeypatch):
+    monkeypatch.setattr("membridge.focus.rename_tab", lambda old, new: "renamed")
+    res = client.post("/rename", json={"old_name": "old tab", "new_name": "new tab"})
+    assert res.status_code == 200
+    assert res.json()["action"] == "renamed"
+
+
+def test_rename_missing_fields_returns_400(client):
+    res = client.post("/rename", json={"old_name": "", "new_name": "new"})
+    assert res.status_code == 400
+
+
+# ── /sessions (iterm list) and /pid/{pid} ────────────────────────────────────
+
+def test_list_iterm_sessions(client, monkeypatch):
+    monkeypatch.setattr("membridge.focus.list_sessions", lambda: ["tab1", "tab2"])
+    res = client.get("/sessions")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["count"] == 2
+    assert "tab1" in data["sessions"]
+
+
+def test_check_pid_alive(client, monkeypatch):
+    monkeypatch.setattr("membridge.focus.pid_alive", lambda pid: True)
+    res = client.get("/pid/12345")
+    assert res.status_code == 200
+    assert res.json()["alive"] is True
+
+
+def test_check_pid_dead(client, monkeypatch):
+    monkeypatch.setattr("membridge.focus.pid_alive", lambda pid: False)
+    res = client.get("/pid/99999")
+    assert res.status_code == 200
+    assert res.json()["alive"] is False
+
+
+# ── /api/notification ────────────────────────────────────────────────────────
+# CHANGELOG: "notification hook — sets awaiting_input, fires macOS notification"
+
+def test_notification_sets_awaiting_input(client, monkeypatch):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    # suppress actual osascript call
+    monkeypatch.setattr("membridge.focus.is_session_frontmost", lambda uuid: True)
+    res = client.post("/api/notification", json={
+        "session_id": "s1",
+        "notif_type": "ask_user_question",
+    })
+    assert res.status_code == 200
+    assert db.get_session("s1")["awaiting_input"] == 1
+
+
+def test_notification_reason_preserved_on_subsequent_stop(client, monkeypatch):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    monkeypatch.setattr("membridge.focus.is_session_frontmost", lambda uuid: True)
+    client.post("/api/notification", json={"session_id": "s1", "notif_type": "ask_user"})
+    reason_after_notif = db.get_session("s1")["last_stop_reason"]
+
+    # Stop hook fires with empty reason — must NOT overwrite
+    client.post("/api/stop", json={"session_id": "s1", "stop_reason": ""})
+    assert db.get_session("s1")["last_stop_reason"] == reason_after_notif
+
+
+# ── /api/sessions/{id}/summaries ─────────────────────────────────────────────
+
+def test_get_summaries_empty(client):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    res = client.get("/api/sessions/s1/summaries")
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_get_summaries_returns_entries(client):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    db.add_summary("s1", "First summary", source="skill")
+    db.add_summary("s1", "Second summary", source="auto")
+    res = client.get("/api/sessions/s1/summaries")
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 2
+    # newest first
+    assert data[0]["text"] == "Second summary"
+
+
+def test_get_summaries_unknown_session_returns_404(client):
+    res = client.get("/api/sessions/nope/summaries")
+    assert res.status_code == 404
