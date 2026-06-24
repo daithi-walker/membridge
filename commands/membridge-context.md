@@ -38,8 +38,8 @@ for s in sessions:
   fi
 fi
 
-SESSION_DATA=$(curl -sf "$BASE_URL/api/sessions/$TARGET" 2>/dev/null)
-if [ -z "$SESSION_DATA" ]; then
+ALL_SESSIONS=$(curl -sf "$BASE_URL/api/sessions" 2>/dev/null)
+if [ -z "$ALL_SESSIONS" ]; then
   echo "MemBridge not running or session not found ($BASE_URL)"
   exit 0
 fi
@@ -51,7 +51,11 @@ target = sys.argv[1]
 is_other = sys.argv[2] != ""
 base = "http://localhost:7842"
 
-data = json.loads(urllib.request.urlopen(f"{base}/api/sessions/{target}").read())
+all_sessions = json.loads(urllib.request.urlopen(f"{base}/api/sessions").read())
+data = next((s for s in all_sessions if s["session_id"] == target), None)
+if not data:
+    print(f"Session {target} not found in MemBridge")
+    sys.exit(0)
 
 print("## MemBridge Session Context\n")
 if is_other:
