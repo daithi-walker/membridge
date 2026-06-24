@@ -42,6 +42,6 @@ curl -s -X POST http://localhost:7842/api/heartbeat \
   -H "Content-Type: application/json" \
   -d "$BODY" \
   --max-time 3 \
-  >/dev/null 2>&1 &
+  >/dev/null 2>&1 || echo "[$(date -u +%FT%TZ)] heartbeat failed for $SESSION_ID" >> /tmp/membridge-hook.log &
 
 exit 0

@@ -31,13 +31,18 @@ Design:
 - Guard: check session is still `awaiting_input` before writing — avoid injecting into an active response
 - Inline focus button in table row turns amber when `awaiting_input`
 
-### 3. Clickable macOS notifications via terminal-notifier
+### 3. Clickable macOS notifications — focus iTerm tab on click
 
-Replace `osascript display notification` with `terminal-notifier` (Homebrew) so notifications:
-- Are clickable and focus the correct iTerm2 tab
-- Work reliably from launchd context (osascript notifications can be suppressed there)
+`osascript display notification` is fire-and-forget; clicking the banner does nothing. Replace with `terminal-notifier` (Homebrew) so:
+- Clicking the notification focuses the correct iTerm2 tab (calls `focus.py focus_session()`)
+- Notifications are more reliable from launchd context (osascript banners can be suppressed there)
 
-Swap `_notify_stop()` in `server.py` to call `terminal-notifier` with `-execute` osascript, fall back to plain osascript if not installed.
+Implementation in `_notify_stop()` (`server.py`):
+- Call `terminal-notifier -title "..." -message "..." -execute "osascript -e 'tell app iTerm2...'"` 
+- Fall back to plain `osascript display notification` if `terminal-notifier` is not installed (`shutil.which`)
+- `install.sh` can optionally `brew install terminal-notifier` with a prompt
+
+Alternative (no Homebrew dependency): small Swift helper using `UNUserNotificationCenter` with a registered click action — more work but no external dep.
 
 ### 3. Show model name per session
 

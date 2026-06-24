@@ -1,16 +1,16 @@
 import asyncio
-import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import db, focus as _focus
+from . import db
+from . import focus as _focus
 from .summariser import summarise
 
 logging.basicConfig(level=logging.INFO)
@@ -18,14 +18,25 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="MemBridge")
 
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next) -> Response:
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 # SSE broadcast — set of queues, one per connected dashboard tab
 _sse_clients: set[asyncio.Queue] = set()
+_sse_lock = asyncio.Lock()
 
 
 def _broadcast(event: str) -> None:
     """Push an event name to all connected SSE clients."""
     dead = set()
-    for q in _sse_clients:
+    # Snapshot the set before iterating to avoid mutation during iteration
+    for q in list(_sse_clients):
         try:
             q.put_nowait(event)
         except asyncio.QueueFull:
@@ -35,10 +46,16 @@ def _broadcast(event: str) -> None:
 _STATIC_DIR = Path(__file__).parent / "static"
 
 
+def _log_task_exception(task: asyncio.Task) -> None:
+    if not task.cancelled() and task.exception():
+        logger.error("Background task %s failed: %s", task.get_name(), task.exception())
+
+
 @app.on_event("startup")
 async def startup() -> None:
     db.init_db()
-    asyncio.create_task(_poll_summary_files())
+    task = asyncio.create_task(_poll_summary_files(), name="poll_summary_files")
+    task.add_done_callback(_log_task_exception)
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -109,7 +126,7 @@ async def sse_events(request: Request) -> StreamingResponse:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=25)
                     yield f"data: {event}\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": keepalive\n\n"
         finally:
             _sse_clients.discard(queue)
@@ -180,7 +197,7 @@ def _notify_stop(session_id: str, was_already_awaiting: bool) -> None:
         description = session.get("description") or ""
         subtitle = description.strip("[] \n").split("\n")[0][:80] if description else "Awaiting input"
         use_sound = settings.get("notif_sound", 0)
-        sound_clause = f'sound name "Ping"' if use_sound else ""
+        sound_clause = 'sound name "Ping"' if use_sound else ""
         script = (
             f'display notification "{subtitle}" '
             f'with title "MemBridge — {project}" '
@@ -264,20 +281,24 @@ async def _generate_summary(session_id: str, transcript_path: str) -> None:
 @app.get("/api/sessions")
 def sessions() -> list[dict]:
     rows = db.list_sessions()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     settings = db.get_settings()
+    result: list[dict] = []
     for row in rows:
+        d = dict(row)
         status = _compute_status(
-            row["last_seen"], now,
+            str(d["last_seen"]), now,
             settings["active_threshold_secs"],
             settings["idle_threshold_secs"],
         )
         # If timestamp says stale but PID is still alive, floor to idle
-        if status == "stale" and row.get("pid"):
-            if _pid_alive(row["pid"]):
+        pid = d.get("pid")
+        if status == "stale" and isinstance(pid, int):
+            if _pid_alive(pid):
                 status = "idle"
-        row["status"] = status
-    return rows
+        d["status"] = status
+        result.append(d)
+    return result
 
 
 def _pid_alive(pid: int) -> bool:
@@ -322,9 +343,9 @@ def check_pid(pid: int) -> dict:
 
 @app.post("/sync-tabs")
 def sync_tabs() -> dict:
-    import threading
-    import sys
     import subprocess as _sp
+    import sys
+    import threading
     _sync = os.path.join(os.path.dirname(__file__), "..", "scripts", "sync_iterm_tabs.py")
 
     def _run():
@@ -450,7 +471,7 @@ def _compute_status(
     try:
         last = datetime.fromisoformat(last_seen_iso)
         if last.tzinfo is None:
-            last = last.replace(tzinfo=timezone.utc)
+            last = last.replace(tzinfo=UTC)
         delta = (now - last).total_seconds()
         if delta < active_secs:
             return "active"

@@ -151,6 +151,26 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ── Toast notifications ───────────────────────────────────────────────────────
+
+function showToast(message, isError = true) {
+  const toast = document.createElement('div');
+  toast.textContent = message;
+  toast.style.cssText = [
+    'position:fixed', 'bottom:1.5rem', 'right:1.5rem', 'z-index:9999',
+    'padding:0.5rem 1rem', 'border-radius:6px', 'font-size:13px',
+    'background:' + (isError ? '#c0392b' : '#2ecc71'), 'color:#fff',
+    'box-shadow:0 2px 8px rgba(0,0,0,.4)', 'opacity:0',
+    'transition:opacity 0.2s',
+  ].join(';');
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.opacity = '1'; });
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, 3000);
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 settingsBtn.addEventListener('click', openSettings);
@@ -857,11 +877,16 @@ async function saveTickets(s) {
   const wrap = document.getElementById('panel-tickets-wrap');
   const tickets = [...wrap.querySelectorAll('.ticket-tag')].map(t => t.dataset.ticket).join(',');
   s.tickets = tickets;
-  await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tickets }),
-  });
+  try {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tickets }),
+    });
+    if (!res.ok) showToast('Failed to save tickets');
+  } catch (_) {
+    showToast('Failed to save tickets');
+  }
 }
 
 function closePanel() {
@@ -880,12 +905,20 @@ document.getElementById('panel-notes').addEventListener('input', function() {
 async function saveNotes(textarea) {
   const s = textarea._session;
   if (!s) return;
-  await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ notes: textarea.value }),
-  });
-  s.notes = textarea.value;
+  try {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: textarea.value }),
+    });
+    if (res.ok) {
+      s.notes = textarea.value;
+    } else {
+      showToast('Failed to save notes');
+    }
+  } catch (_) {
+    showToast('Failed to save notes');
+  }
 }
 
 document.getElementById('panel-summary').addEventListener('click', function() {
@@ -907,14 +940,22 @@ function startPanelSummaryEdit(s, el) {
   async function save() {
     const newSummary = textarea.value.trim();
     if (newSummary !== orig.trim()) {
-      await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: newSummary }),
-      });
-      s.description = newSummary;
-      s.description_source = 'user';
-      await loadHistory(s.session_id);
+      try {
+        const res = await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: newSummary }),
+        });
+        if (res.ok) {
+          s.description = newSummary;
+          s.description_source = 'user';
+          await loadHistory(s.session_id);
+        } else {
+          showToast('Failed to save description');
+        }
+      } catch (_) {
+        showToast('Failed to save description');
+      }
     }
     const newEl = makeSummaryEl(s);
     textarea.replaceWith(newEl);
@@ -950,7 +991,8 @@ function stripMd(text) {
 function renderMarkdown(el, text) {
   if (!text) { el.innerHTML = ''; return; }
   if (typeof marked !== 'undefined') {
-    el.innerHTML = marked.parse(text, { breaks: true, gfm: true });
+    const raw = marked.parse(text, { breaks: true, gfm: true });
+    el.innerHTML = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(raw) : raw;
     el.classList.add('md-prose');
   } else {
     el.textContent = text;

@@ -23,9 +23,8 @@ Options:
 import argparse
 import json
 import os
-import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
@@ -120,7 +119,7 @@ def main() -> None:
 
     cutoff = None
     if args.days > 0:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
+        cutoff = datetime.now(UTC) - timedelta(days=args.days)
 
     # Collect all .jsonl files across all project dirs
     jsonl_files = list(CLAUDE_PROJECTS_DIR.glob("*/*.jsonl"))
@@ -140,7 +139,7 @@ def main() -> None:
         if cutoff:
             last = datetime.fromisoformat(result["last_seen"])
             if last.tzinfo is None:
-                last = last.replace(tzinfo=timezone.utc)
+                last = last.replace(tzinfo=UTC)
             if last < cutoff:
                 skipped_cutoff += 1
                 continue
@@ -164,8 +163,9 @@ def main() -> None:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     os.environ.setdefault("MEMBRIDGE_DB", str(MEMBRIDGE_DB))
 
-    from membridge.db import init_db, upsert_heartbeat, update_description, record_stop
     import sqlite3
+
+    from membridge.db import init_db, update_description, upsert_heartbeat
 
     init_db()
 
@@ -203,8 +203,8 @@ def main() -> None:
 
     if args.summarise:
         print("\nGenerating AI summaries (this may take a while)...")
-        from membridge.summariser import summarise
         from membridge.db import get_session
+        from membridge.summariser import summarise
 
         for s in sessions:
             session = get_session(s["session_id"])

@@ -1,7 +1,7 @@
 # ADR 004: Docker + Host Process Split
 
 **Date:** 2026-06-23  
-**Status:** Accepted (with known limitations — see Desired State)
+**Status:** Superseded by [ADR 012](012-drop-docker-native-process.md)
 
 ## Context
 

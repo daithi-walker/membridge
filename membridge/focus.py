@@ -1,6 +1,7 @@
 """iTerm2 focus and tab management via osascript — runs on the Mac host only."""
 import logging
 import os
+import re
 import shutil
 import subprocess
 
@@ -115,6 +116,24 @@ end tell
 """
 
 
+_SAFE_PATH_RE = re.compile(r'^[\w/\-. ]+$')
+_SAFE_ID_RE   = re.compile(r'^[a-zA-Z0-9_\-]+$')
+
+
+def _safe_path(value: str) -> str:
+    """Raise if value contains characters that could escape an AppleScript shell write."""
+    if not _SAFE_PATH_RE.match(value):
+        raise ValueError(f"Unsafe path for AppleScript: {value!r}")
+    return value
+
+
+def _safe_id(value: str) -> str:
+    """Raise if session_id contains characters that could escape an AppleScript shell write."""
+    if not _SAFE_ID_RE.match(value):
+        raise ValueError(f"Unsafe session_id for AppleScript: {value!r}")
+    return value
+
+
 def _run(script: str, timeout: int = 5) -> str:
     result = subprocess.run(
         ["osascript", "-e", script],
@@ -168,10 +187,18 @@ def focus_session(
             if _run(script) == "focused":
                 return "focused"
 
+    try:
+        safe_cwd = _safe_path(cwd)
+        safe_sid = _safe_id(session_id)
+    except ValueError as e:
+        logger.warning("focus_session: %s — falling back to home dir open", e)
+        safe_cwd = os.path.expanduser("~")
+        safe_sid = session_id[:8] if _SAFE_ID_RE.match(session_id[:8]) else "claude"
+
     script = _OPEN_TAB.format(
-        cwd=cwd.replace('"', '\\"'),
+        cwd=safe_cwd.replace('"', '\\"'),
         claude_bin=claude_bin.replace('"', '\\"'),
-        session_id=session_id.replace('"', '\\"'),
+        session_id=safe_sid.replace('"', '\\"'),
         tab_name=tab_name.replace('"', '\\"'),
     )
     _run(script)

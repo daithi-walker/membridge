@@ -16,14 +16,14 @@ if [ "$TOOL_NAME" = "AskUserQuestion" ]; then
     -H "Content-Type: application/json" \
     -d "$BODY" \
     --max-time 2 \
-    >/dev/null 2>&1 &
+    >/dev/null 2>&1 || echo "[$(date -u +%FT%TZ)] notification failed for $SESSION_ID" >> /tmp/membridge-hook.log &
 else
   BODY="{\"session_id\":\"$SESSION_ID\"}"
   curl -s -X POST http://localhost:7842/api/touch \
     -H "Content-Type: application/json" \
     -d "$BODY" \
     --max-time 2 \
-    >/dev/null 2>&1 &
+    >/dev/null 2>&1 || echo "[$(date -u +%FT%TZ)] touch failed for $SESSION_ID" >> /tmp/membridge-hook.log &
 fi
 
 exit 0

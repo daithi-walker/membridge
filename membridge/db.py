@@ -1,9 +1,33 @@
+import logging
 import os
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Generator
+from typing import TypedDict
+
+logger = logging.getLogger(__name__)
+
+
+class SessionRow(TypedDict, total=False):
+    session_id: str
+    cwd: str
+    project_name: str
+    git_branch: str | None
+    iterm_tab: str | None
+    iterm_session_uuid: str | None
+    pid: int | None
+    first_seen: str
+    last_seen: str
+    last_stop_reason: str | None
+    description: str | None
+    prompt_count: int
+    notes: str | None
+    archived: int
+    tickets: str | None
+    starred: int
+    awaiting_input: int
 
 DB_PATH = Path(os.getenv("MEMBRIDGE_DB", Path.home() / ".membridge" / "sessions.db"))
 
@@ -67,7 +91,7 @@ _MIGRATIONS = [
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def init_db() -> None:
@@ -79,8 +103,8 @@ def init_db() -> None:
         for sql in _MIGRATIONS:
             try:
                 conn.execute(sql)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Migration skipped (already applied?): %s — %s", sql.split("\n")[0][:60], e)
         for k, v in _SETTINGS_DEFAULTS.items():
             conn.execute(
                 "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v)
@@ -188,7 +212,7 @@ def add_summary(
     text: str,
     source: str = "auto",
     file_path: str | None = None,
-) -> int:
+) -> int | None:
     """Append a new entry to session_summaries. Only auto-source updates sessions.description."""
     now = _now()
     with _conn() as conn:
@@ -295,20 +319,20 @@ def update_tickets(session_id: str, tickets: str) -> None:
         )
 
 
-def get_session(session_id: str) -> dict | None:
+def get_session(session_id: str) -> SessionRow | None:
     with _conn() as conn:
         row = conn.execute(
             "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
         ).fetchone()
-    return dict(row) if row else None
+    return SessionRow(**dict(row)) if row else None
 
 
-def list_sessions(include_stale: bool = True) -> list[dict]:
+def list_sessions(include_stale: bool = True) -> list[SessionRow]:
     with _conn() as conn:
         rows = conn.execute(
             "SELECT * FROM sessions ORDER BY last_seen DESC"
         ).fetchall()
-    return [dict(r) for r in rows]
+    return [SessionRow(**dict(r)) for r in rows]
 
 
 def get_settings() -> dict:
