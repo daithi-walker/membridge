@@ -820,7 +820,8 @@
       #sessions-table-wrap { display: none; }
       #cards-view { display: flex; }
 
-      /* Allow browser pull-to-refresh on mobile */
+      /* Let browser handle layout naturally — no fixed height fighting the toolbar */
+      html { height: auto; }
       body { overflow: auto; height: auto; }
       #layout { overflow: visible; }
       #content { overflow: visible; }
