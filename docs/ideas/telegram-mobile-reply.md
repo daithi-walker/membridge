@@ -128,6 +128,12 @@ Extracting the actual option text requires capturing the notification `message` 
 
 Total realistic estimate: **1–2 days** if the Accessibility permission works cleanly, **longer** if it doesn't and we need a fallback path.
 
+## The visibility problem
+
+`claude --resume --print` gives you the final response but none of the in-progress tool calls, diffs, or reasoning. For short decision replies that's fine. For longer agentic runs it's a black box — you'd want to see what Claude is doing mid-turn, not just the result.
+
+This is the same problem Daedalus-style tooling is designed to solve: a streaming observer layer over an agentic Claude Code run that surfaces tool calls, file edits, and reasoning in real time to a remote viewer. That's a significant piece of infrastructure in its own right. MemBridge is a natural home for it — sessions are already tracked, SSE is already wired — but the Claude Code side would need Anthropic to expose structured streaming output from `--print` mode, or a local socket we can subscribe to.
+
 ## Revisit when
 
 - Headless reply via `claude --resume --print` is built (see backlog — Future) — this eliminates the osascript blocker entirely
