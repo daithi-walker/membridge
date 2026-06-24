@@ -384,7 +384,7 @@ function buildRow(s) {
     _focusTitle = 'Resume session';
   } else if (s.status === 'active') {
     _focusCls += ' btn-focus-row-working';
-    _focusIcon = '🧠';
+    _focusIcon = '◉';
     _focusTitle = 'Claude is working…';
   }
   focusRowBtn.className = _focusCls;
