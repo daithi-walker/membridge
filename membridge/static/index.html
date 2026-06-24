@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MemBridge</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -62,7 +62,6 @@
 
     header {
       padding: 16px 24px;
-      padding-top: max(16px, calc(env(safe-area-inset-top) + 8px));
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
@@ -820,6 +819,11 @@
       #legend { display: none !important; }
       #sessions-table-wrap { display: none; }
       #cards-view { display: flex; }
+
+      /* Allow browser pull-to-refresh on mobile */
+      body { overflow: auto; height: auto; }
+      #layout { overflow: visible; }
+      #content { overflow: visible; }
 
       /* Modal full-height on mobile */
       #panel-overlay { padding: 0; align-items: flex-end; }
