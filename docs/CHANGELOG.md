@@ -6,6 +6,9 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Inline description editing in table row — click description cell, type, Enter to save, Escape to revert; row click still opens modal
+- Column resize rewritten — widths driven by `<colgroup><col>` elements; resizing one column never shifts others; table scrolls horizontally if needed; drag target is right edge of any header
+- Bug fix: modal description edit no longer shows wrong session's text (stale closure fixed)
 - `/membridge-tag <text>` slash command — set or update session description instantly; Claude can self-tag its own sessions
 - Activity column and vestigial › chevron removed; Description column fills remaining width
 - Session ID as separate column (short 8-char prefix); click to copy full UUID to clipboard
