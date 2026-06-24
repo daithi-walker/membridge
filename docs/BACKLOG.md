@@ -6,20 +6,7 @@ Planned work, ordered by priority within each tier. See `docs/adr/` for the deci
 
 ## Near-term
 
-### 1. Drop Docker — migrate to native host process
-**Priority: High** | ADR 004
-
-Docker was chosen for iteration speed but is the wrong runtime for a tool that needs deep macOS integration. The Docker/host split (two launchd plists, volume-mounted credentials, `host.docker.internal` network hop) adds complexity that compounds every other near-term item.
-
-Migration path:
-- Run uvicorn directly on the host via a single launchd plist
-- Move ADC credential handling to native env var (`GOOGLE_APPLICATION_CREDENTIALS`)
-- Consolidate focus server into the main process — no more split
-- Update `scripts/install.sh` to manage a venv instead of Docker
-
-Unblocks: static file live-reload, credential cleanup, simpler install.
-
-### 2. Session feedback / reply from dashboard
+### 1. Session feedback / reply from dashboard
 
 Allow sending a follow-up prompt to a waiting Claude session directly from the MemBridge dashboard.
 
@@ -50,15 +37,14 @@ Capture the Claude model from hook payloads (`model` field in some events), stor
 
 Small migration: one new column, one extra field in heartbeat extraction.
 
-### 3. Test suite
-**Priority: High**
+### 3. Improve `server.py` test coverage (67% → 80%+)
 
-No automated tests exist. Cover these in rough order:
+90 tests exist (`test_db.py`, `test_server.py`, `test_focus.py`, `test_summariser.py`). Remaining gaps in `server.py`:
 
-- `db.py`: heartbeat upsert (new vs existing), `add_summary()`, `summary_file_already_ingested()`, dedup key format (`path:size`), settings CRUD, `set_archived()`
-- `server.py`: status computation (active/idle/stale, PID-alive override), auto-summary dedup (same transcript size = skip, grown = new entry), PATCH endpoint field routing
-- File poller: mock filesystem, verify dedup prevents double-ingest
-- Focus server: `/pid/<pid>` alive check
+- `_notify_stop()` — mock `subprocess.Popen`; test sound/no-sound and frontmost-session skip
+- `_generate_summary()` async task — mock `summarise()` + asyncio task creation
+- SSE `/api/events` stream — async generator test client
+- `/sync-tabs` — mock `threading.Thread` / `subprocess.run`
 
 ### 3. Context usage % in session modal
 

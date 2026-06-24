@@ -6,6 +6,18 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Bug fix: inline table description edit no longer lost when SSE refresh or poll timer fires mid-edit — `editingInline` flag suppresses `render()` while input is active; `sessions[]` updated on save so next render has the correct value
+- Bug fix: column resize hotzone detection switched from `offsetX`/`offsetWidth` to `getBoundingClientRect()` — reliable on `position:sticky` headers
+- Bug fix: `notification_type` field (not `type`) now read correctly from Notification hook payload; was causing all notifications to store as `"notification:"` with empty type, breaking `?` icon
+- Bug fix: any `last_stop_reason` starting with `"notification:"` now shows `?` icon — covers all notification types, not just `permission_prompt`
+- FastAPI lifespan migration — `@app.on_event("startup")` replaced with `@asynccontextmanager _lifespan()` in `server.py`; deprecation warnings eliminated; poll task cancelled cleanly on shutdown
+- Security: AppleScript shell injection fix in `focus.py` — `_safe_path()`/`_safe_id()` regex validators applied before `cwd`/`session_id` interpolation into `write text` command
+- Security: server binds to `127.0.0.1` by default (`MEMBRIDGE_HOST` env var for LAN); DOMPurify sanitisation on all `marked.parse()` output; SRI hashes on CDN scripts; security headers middleware (X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
+- Test suite — 90 tests across `test_db.py`, `test_server.py`, `test_focus.py`, `test_summariser.py`; 80% total coverage
+- CI — GitHub Actions (`.github/workflows/lint.yml`) runs ruff + mypy + pytest on push/PR
+- `docs/CODING_STANDARDS.md` — security, error handling, DB, testing, and style rules
+- `docs/COVERAGE.md` — per-release coverage tracking with improvement targets
+- ADR 012 — documents Docker removal decision; ADR 004 marked superseded
 - Mobile card view — below 768px, table is replaced by stacked cards showing status icon, focus button, project, status pill, description, branch, last active, and short ID; modal slides up as bottom sheet on mobile
 - Mobile: pull-to-refresh works (browser native gesture); `window.location.origin` replaces hardcoded `localhost:7842` so focus/sync work from LAN (phone); fixed single-quote bug from revert that was sending literal `${BASE}` as the URL
 - Mobile: modal sheet uses `92dvh` so Chrome iOS persistent toolbars do not clip the top; drag handle pill + larger ✕ button for close affordance; home indicator safe area padding on card list
