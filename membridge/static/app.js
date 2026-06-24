@@ -353,7 +353,9 @@ function render(all) {
 
   if (activePanel) {
     const fresh = sessions.find(s => s.session_id === activePanel);
-    if (fresh) openPanel(fresh, false);
+    const panelEl = document.getElementById('panel-overlay');
+    const panelFocused = panelEl && panelEl.contains(document.activeElement) && document.activeElement !== panelEl;
+    if (fresh && !panelFocused) openPanel(fresh, false);
   }
 }
 
@@ -890,6 +892,8 @@ async function saveTickets(s) {
   const wrap = document.getElementById('panel-tickets-wrap');
   const tickets = [...wrap.querySelectorAll('.ticket-tag')].map(t => t.dataset.ticket).join(',');
   s.tickets = tickets;
+  const idx = sessions.findIndex(r => r.session_id === s.session_id);
+  if (idx !== -1) sessions[idx].tickets = tickets;
   try {
     const res = await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
       method: 'PATCH',
@@ -926,6 +930,8 @@ async function saveNotes(textarea) {
     });
     if (res.ok) {
       s.notes = textarea.value;
+      const idx = sessions.findIndex(r => r.session_id === s.session_id);
+      if (idx !== -1) sessions[idx].notes = textarea.value;
     } else {
       showToast('Failed to save notes');
     }
