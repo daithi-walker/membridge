@@ -393,14 +393,13 @@ function buildRow(s) {
   let _focusTitle = 'Focus tab';
   if (s.awaiting_input) {
     _focusCls += ' btn-focus-row-awaiting';
-    const isDecision = s.last_stop_reason && s.last_stop_reason.includes('permission_prompt');
-    const isAskUser = s.last_stop_reason && s.last_stop_reason.includes('ask_user_question');
+    const isDecision = s.last_stop_reason && (
+      s.last_stop_reason.includes('permission_prompt') ||
+      s.last_stop_reason.includes('ask_user_question')
+    );
     if (isDecision) {
       _focusIcon = '?';
       _focusTitle = 'Needs a decision';
-    } else if (isAskUser) {
-      _focusIcon = '✎';
-      _focusTitle = 'Needs text input';
     } else {
       _focusIcon = '✎';
       _focusTitle = 'Awaiting your input';
@@ -568,7 +567,10 @@ function buildCard(s) {
   let _icon = '⌘';
   if (s.awaiting_input) {
     _cls += ' btn-focus-row-awaiting';
-    _icon = (s.last_stop_reason && s.last_stop_reason.includes('permission_prompt')) ? '?' : '✎';
+    _icon = (s.last_stop_reason && (
+      s.last_stop_reason.includes('permission_prompt') ||
+      s.last_stop_reason.includes('ask_user_question')
+    )) ? '?' : '✎';
   } else if (s.status === 'stale') {
     _cls += ' btn-focus-row-resume'; _icon = '↩';
   } else if (s.status === 'active') {
