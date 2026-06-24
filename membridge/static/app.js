@@ -393,10 +393,8 @@ function buildRow(s) {
   let _focusTitle = 'Focus tab';
   if (s.awaiting_input) {
     _focusCls += ' btn-focus-row-awaiting';
-    const isDecision = s.last_stop_reason && (
-      s.last_stop_reason.includes('permission_prompt') ||
-      s.last_stop_reason.includes('ask_user_question')
-    );
+    // notification: prefix = Claude actively needs attention (any type)
+    const isDecision = s.last_stop_reason && s.last_stop_reason.startsWith('notification:');
     if (isDecision) {
       _focusIcon = '?';
       _focusTitle = 'Needs a decision';
@@ -567,10 +565,7 @@ function buildCard(s) {
   let _icon = '⌘';
   if (s.awaiting_input) {
     _cls += ' btn-focus-row-awaiting';
-    _icon = (s.last_stop_reason && (
-      s.last_stop_reason.includes('permission_prompt') ||
-      s.last_stop_reason.includes('ask_user_question')
-    )) ? '?' : '✎';
+    _icon = (s.last_stop_reason && s.last_stop_reason.startsWith('notification:')) ? '?' : '✎';
   } else if (s.status === 'stale') {
     _cls += ' btn-focus-row-resume'; _icon = '↩';
   } else if (s.status === 'active') {
@@ -1069,10 +1064,11 @@ function initColResize() {
     if (!col) return;
 
     th.addEventListener('mousedown', e => {
-      // Only trigger on right 6px of the header
-      if (e.offsetX < th.offsetWidth - 6) return;
+      // Only trigger on right 8px of the header (use clientX vs bounding rect — more reliable on sticky headers)
+      const rect = th.getBoundingClientRect();
+      if (e.clientX < rect.right - 8) return;
       e.preventDefault();
-      const startW = colWidths[col] || th.getBoundingClientRect().width;
+      const startW = colWidths[col] || rect.width;
       const startX = e.clientX;
       th.classList.add('col-resizing');
 
@@ -1096,7 +1092,8 @@ function initColResize() {
 
     // Pointer cursor on right edge
     th.addEventListener('mousemove', e => {
-      th.style.cursor = e.offsetX >= th.offsetWidth - 6 ? 'col-resize' : '';
+      const rect = th.getBoundingClientRect();
+      th.style.cursor = e.clientX >= rect.right - 8 ? 'col-resize' : '';
     });
     th.addEventListener('mouseleave', () => { th.style.cursor = ''; });
   });

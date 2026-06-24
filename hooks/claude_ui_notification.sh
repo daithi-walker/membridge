@@ -7,7 +7,7 @@ set -euo pipefail
 
 PAYLOAD=$(cat)
 SESSION_ID=$(echo "$PAYLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin).get('session_id',''))" 2>/dev/null)
-NOTIF_TYPE=$(echo "$PAYLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin).get('type',''))" 2>/dev/null)
+NOTIF_TYPE=$(echo "$PAYLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin).get('notification_type',''))" 2>/dev/null)
 MESSAGE=$(echo "$PAYLOAD"    | python3 -c "import sys,json; print(json.load(sys.stdin).get('message',''))" 2>/dev/null)
 
 [ -z "$SESSION_ID" ] && exit 0
