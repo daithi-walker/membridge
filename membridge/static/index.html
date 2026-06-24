@@ -754,6 +754,76 @@
       flex: 1;
       padding: 0;
     }
+
+    /* ── Mobile card view ── */
+    #cards-view {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px;
+    }
+    .session-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .session-card:hover { background: var(--surface2); border-color: var(--text-muted); }
+    .session-card.row-active { border-color: var(--accent); background: var(--accent-dim); }
+    .session-card.row-archived { opacity: 0.5; }
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+    .card-project {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-left: 2px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .card-bottom {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 10px 14px; gap: 8px; }
+      header h1 { font-size: 16px; }
+      header .subtitle { display: none; }
+      #controls { padding: 6px 12px; flex-wrap: wrap; gap: 8px; }
+      #legend { display: none !important; }
+      #sessions-table-wrap { display: none; }
+      #cards-view { display: flex; }
+
+      /* Modal full-height on mobile */
+      #panel-overlay { padding: 0; align-items: flex-end; }
+      #side-panel {
+        width: 100%;
+        max-height: 92vh;
+        border-radius: 12px 12px 0 0;
+        border-bottom: none;
+      }
+      .panel-actions { flex-wrap: wrap; }
+    }
   </style>
 </head>
 <body>
@@ -888,6 +958,7 @@
         <tbody id="sessions-body"></tbody>
       </table>
       </div>
+      <div id="cards-view"></div>
       <div id="empty-state" style="display:none">
         <p>No sessions yet. Claude Code sessions appear here automatically once the hooks are installed.</p>
         <code>Run scripts/install.sh to get started</code>

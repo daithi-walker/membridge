@@ -6,6 +6,7 @@ let showFilter = new Set(['active', 'idle']);
 let projectFilter = new Set(); // empty = all projects
 let activePanel = null;
 
+const cardsView = document.getElementById('cards-view');
 const tbody = document.getElementById('sessions-body');
 const table = document.getElementById('sessions-table');
 const emptyState = document.getElementById('empty-state');
@@ -309,6 +310,7 @@ function render(all) {
 
   if (visible.length === 0) {
     table.style.display = 'none';
+    cardsView.innerHTML = '';
     emptyState.style.display = 'block';
     return;
   }
@@ -316,9 +318,11 @@ function render(all) {
   table.style.display = 'table';
   emptyState.style.display = 'none';
   tbody.innerHTML = '';
+  cardsView.innerHTML = '';
 
   for (const s of visible) {
     tbody.appendChild(buildRow(s));
+    cardsView.appendChild(buildCard(s));
   }
 
   if (activePanel) {
@@ -513,6 +517,102 @@ function buildRow(s) {
   return tr;
 }
 
+function buildCard(s) {
+  const card = document.createElement('div');
+  card.className = 'session-card' + (s.archived ? ' row-archived' : '') + (activePanel === s.session_id ? ' row-active' : '');
+  card.dataset.sessionId = s.session_id;
+  card.addEventListener('click', () => openPanel(s, false));
+
+  // Top row: star, focus, project, status pill
+  const top = document.createElement('div');
+  top.className = 'card-top';
+
+  // Star
+  const starBtn = document.createElement('button');
+  starBtn.className = 'btn-star' + (s.starred ? ' btn-star-on' : '');
+  starBtn.title = s.starred ? 'Unstar' : 'Star';
+  starBtn.textContent = '★';
+  starBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    s.starred = !s.starred;
+    render(sessions);
+    await fetch(`/api/sessions/${s.session_id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ starred: s.starred }),
+    });
+  });
+  top.appendChild(starBtn);
+
+  // Focus button
+  const focusBtn = document.createElement('button');
+  let _cls = 'btn-focus-row';
+  let _icon = '⌘';
+  if (s.awaiting_input) {
+    _cls += ' btn-focus-row-awaiting';
+    _icon = (s.last_stop_reason && s.last_stop_reason.includes('permission_prompt')) ? '?' : '✎';
+  } else if (s.status === 'stale') {
+    _cls += ' btn-focus-row-resume'; _icon = '↩';
+  } else if (s.status === 'active') {
+    _cls += ' btn-focus-row-working'; _icon = '◉';
+  }
+  focusBtn.className = _cls;
+  focusBtn.textContent = _icon;
+  focusBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    focusBtn.textContent = '…';
+    focusBtn.disabled = true;
+    try {
+      await fetch('http://localhost:7842/focus', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: s.session_id, pid: s.pid, cwd: s.cwd, iterm_session_uuid: s.iterm_session_uuid, tab_name: s.iterm_tab || s.project_name }),
+      });
+    } catch (_) {}
+    setTimeout(() => { focusBtn.textContent = _icon; focusBtn.disabled = false; }, 2000);
+  });
+  top.appendChild(focusBtn);
+
+  const proj = document.createElement('span');
+  proj.className = 'card-project';
+  proj.textContent = s.project_name;
+  top.appendChild(proj);
+
+  const badge = document.createElement('span');
+  badge.className = `pill badge-${s.status}`;
+  badge.textContent = s.status;
+  top.appendChild(badge);
+
+  card.appendChild(top);
+
+  // Description
+  if (s.description) {
+    const desc = document.createElement('div');
+    desc.className = 'card-desc';
+    const plain = stripMd(s.description);
+    desc.textContent = plain.slice(0, 100) + (plain.length > 100 ? '…' : '');
+    card.appendChild(desc);
+  }
+
+  // Bottom meta row: branch · last active · id
+  const bottom = document.createElement('div');
+  bottom.className = 'card-bottom';
+  if (s.git_branch) {
+    const b = document.createElement('span');
+    b.style.fontFamily = 'monospace';
+    b.textContent = s.git_branch;
+    bottom.appendChild(b);
+  }
+  const last = document.createElement('span');
+  last.textContent = relativeTime(s.last_seen);
+  bottom.appendChild(last);
+  const id = document.createElement('span');
+  id.style.fontFamily = 'monospace';
+  id.textContent = s.session_id.slice(0, 8) + '…';
+  bottom.appendChild(id);
+  card.appendChild(bottom);
+
+  return card;
+}
+
 // ── Side panel ────────────────────────────────────────────────────────────────
 
 function openPanel(s, scrollIntoView) {
@@ -525,6 +625,9 @@ function openPanel(s, scrollIntoView) {
       r.classList.add('row-active');
       if (scrollIntoView) r.scrollIntoView({ block: 'nearest' });
     }
+  });
+  document.querySelectorAll('#cards-view .session-card').forEach(c => {
+    c.classList.toggle('row-active', c.dataset.sessionId === s.session_id);
   });
 
   document.getElementById('panel-project').textContent = s.project_name;
@@ -766,6 +869,8 @@ function closePanel() {
   activePanel = null;
   panelOverlay.classList.remove('open');
   document.querySelectorAll('#sessions-body tr').forEach(r => r.classList.remove('row-active'));
+  document.querySelectorAll('#cards-view .session-card').forEach(c => c.classList.remove('row-active'));
+
 }
 
 document.getElementById('panel-notes').addEventListener('input', function() {

@@ -31,16 +31,6 @@ Design:
 - Guard: check session is still `awaiting_input` before writing — avoid injecting into an active response
 - Inline focus button in table row turns amber when `awaiting_input`
 
-### 3. Mobile-responsive layout
-
-The horizontal table is unusable on phone-width screens. Options:
-
-- **Card view below breakpoint** (`@media (max-width: 768px)`): each session becomes a stacked card showing status icon, project, short ID, branch, last active, and description. Focus/star buttons stay visible.
-- **Column hiding**: hide lower-priority columns (Prompts, ID, Branch) on narrow screens, keep Status + Project + Description.
-- **Separate mobile route** (`/m`): a dedicated minimal view optimised for read-only phone use — just the awaiting sessions prominent at top, rest collapsed.
-
-Card view is the most usable and doesn't require a separate page. CSS-only below a breakpoint, no JS changes.
-
 ### 3. Clickable macOS notifications via terminal-notifier
 
 Replace `osascript display notification` with `terminal-notifier` (Homebrew) so notifications:
@@ -54,10 +44,6 @@ Swap `_notify_stop()` in `server.py` to call `terminal-notifier` with `-execute`
 Capture the Claude model from hook payloads (`model` field in some events), store in `sessions` table, surface as a tooltip or small tag in the dashboard row.
 
 Small migration: one new column, one extra field in heartbeat extraction.
-
-### 3. Column resize lag
-
-Resizable columns work (no jump) but the column lags behind the cursor during drag. Cause likely: `table-layout: fixed` column width negotiation between header and body cells even when only setting `th` width. Possible fix: use a `<col>` element per column and set width on that instead of on `th`/`td` directly — `colgroup`/`col` is the correct CSS hook for fixed table column widths.
 
 ### 3. Test suite
 **Priority: High**

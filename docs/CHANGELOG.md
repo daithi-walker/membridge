@@ -6,6 +6,7 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Mobile card view — below 768px, table is replaced by stacked cards showing status icon, focus button, project, status pill, description, branch, last active, and short ID; modal slides up from bottom on mobile
 - Inline description editing in table row — click description cell, type, Enter to save, Escape to revert; row click still opens modal
 - Column resize rewritten — widths driven by `<colgroup><col>` elements; resizing one column never shifts others; table scrolls horizontally if needed; drag target is right edge of any header
 - Bug fix: modal description edit no longer shows wrong session's text (stale closure fixed)
