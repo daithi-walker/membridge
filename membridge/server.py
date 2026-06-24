@@ -191,7 +191,7 @@ def _notify_stop(session_id: str, was_already_awaiting: bool) -> None:
         logger.debug("Notification skipped: %s", e)
 
 
-_SUMMARIES_ROOT = Path(os.getenv("MEMBRIDGE_DB", "/data/sessions.db")).parent / "summaries"
+_SUMMARIES_ROOT = Path(os.getenv("MEMBRIDGE_DB", str(Path.home() / ".membridge" / "sessions.db"))).parent / "summaries"
 
 _POLL_INTERVAL = 30  # seconds
 
