@@ -108,6 +108,31 @@ Run `sync_iterm_tabs.py` on a schedule (5 min via launchd) so tab names stay cur
 - New session in a named directory
 - Temporal integration for long-running agent workflows
 
+### Headless session reply via `claude --resume --print`
+
+Allow replying to a waiting session from anywhere (dashboard, Telegram, phone) by driving Claude Code as a subprocess rather than injecting keystrokes into iTerm.
+
+**How it works:**
+```
+POST /api/sessions/{id}/message  {"text": "yes, proceed"}
+  → MemBridge calls: claude --resume <id> --print "<text>"
+  → captures stdout
+  → stores response as a session turn
+  → SSE pushes to dashboard
+```
+
+No osascript, no Accessibility permission, no container latency. Hooks (`Stop`, `PreToolUse`) fire normally because it's the real Claude Code binary on the host. The repo and transcript are already on disk — nothing to mount.
+
+**Trade-offs:**
+- Response arrives only on completion (no streaming mid-turn) — acceptable for decision prompts
+- `--dangerously-skip-permissions` needed to avoid interactive approval prompts in headless mode — caller must opt in explicitly
+- iTerm session is bypassed; the headless turn doesn't appear in the iTerm history, only in MemBridge
+
+**Path to Telegram integration:**
+Once this works, wiring Telegram is straightforward — inbound Telegram message → `POST /api/sessions/{id}/message` → response back via `sendMessage`. See `docs/ideas/telegram-mobile-reply.md` for the full Telegram architecture.
+
+**Effort:** Medium — `claude --print` subprocess wrapper, response capture, new DB turn type, SSE push.
+
 ---
 
 ---

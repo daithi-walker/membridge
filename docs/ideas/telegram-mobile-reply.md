@@ -130,6 +130,6 @@ Total realistic estimate: **1–2 days** if the Accessibility permission works c
 
 ## Revisit when
 
-- `session-reply.md` osascript injection is proven to work from launchd context
-- Tailscale (or similar) is set up, enabling webhook mode for cleaner inbound handling
+- Headless reply via `claude --resume --print` is built (see backlog — Future) — this eliminates the osascript blocker entirely
+- Tailscale (or similar) is set up, enabling webhook mode for cleaner inbound handling than long polling
 - We want a proper mobile companion beyond read-only dashboard access
