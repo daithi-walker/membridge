@@ -6,8 +6,11 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Description column wraps text — `white-space: normal` on `td.col-desc`; 120-char JS truncation removed; rows grow to fit long descriptions
+- Bug fix: column resize now works on all columns — `overflow:hidden` was clipping the `::after` drag handle on `th` elements; split into `th` (visible) and `td` (hidden) rules; resize handle widened from 4px to 8px; hotzone widened to 12px; drag baseline uses live `rect.width` so columns don't snap on first drag
+- Table width changed from `max-content/min-width:100%` to `width:100%` — prevents description/branch columns from bloating beyond viewport width
+- Brain emoji favicon (inline SVG data URI, no extra file)
 - Bug fix: inline table description edit no longer lost when SSE refresh or poll timer fires mid-edit — `editingInline` flag suppresses `render()` while input is active; `sessions[]` updated on save so next render has the correct value
-- Bug fix: column resize hotzone detection switched from `offsetX`/`offsetWidth` to `getBoundingClientRect()` — reliable on `position:sticky` headers
 - Bug fix: `notification_type` field (not `type`) now read correctly from Notification hook payload; was causing all notifications to store as `"notification:"` with empty type, breaking `?` icon
 - Bug fix: any `last_stop_reason` starting with `"notification:"` now shows `?` icon — covers all notification types, not just `permission_prompt`
 - FastAPI lifespan migration — `@app.on_event("startup")` replaced with `@asynccontextmanager _lifespan()` in `server.py`; deprecation warnings eliminated; poll task cancelled cleanly on shutdown
