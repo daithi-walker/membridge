@@ -149,6 +149,7 @@ def _rename_iterm_tab(old_name: str, new_name: str) -> None:
 @app.post("/api/touch")
 def touch(payload: TouchPayload) -> dict:
     db.touch_session(payload.session_id)
+    _broadcast("refresh")
     return {"ok": True}
 
 

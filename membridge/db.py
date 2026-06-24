@@ -159,16 +159,27 @@ def upsert_heartbeat(
 
 
 def record_stop(session_id: str, stop_reason: str) -> bool:
-    """Set awaiting_input=1. Returns True if session was already awaiting (no transition)."""
+    """Set awaiting_input=1. Returns True if session was already awaiting (no transition).
+
+    If stop_reason is empty and awaiting_input is already set (Notification hook fired first),
+    preserve the existing last_stop_reason so the UI icon isn't downgraded to the default ✎.
+    """
     with _conn() as conn:
         row = conn.execute(
             "SELECT awaiting_input FROM sessions WHERE session_id = ?", (session_id,)
         ).fetchone()
         was_awaiting = bool(row and row[0])
-        conn.execute(
-            "UPDATE sessions SET last_stop_reason = ?, awaiting_input = 1 WHERE session_id = ?",
-            (stop_reason, session_id),
-        )
+        if not stop_reason and was_awaiting:
+            # Notification hook already set a meaningful reason — don't overwrite with ""
+            conn.execute(
+                "UPDATE sessions SET awaiting_input = 1 WHERE session_id = ?",
+                (session_id,),
+            )
+        else:
+            conn.execute(
+                "UPDATE sessions SET last_stop_reason = ?, awaiting_input = 1 WHERE session_id = ?",
+                (stop_reason, session_id),
+            )
     return was_awaiting
 
 
@@ -241,7 +252,7 @@ def update_description(session_id: str, description: str) -> None:
 def touch_session(session_id: str) -> None:
     with _conn() as conn:
         conn.execute(
-            "UPDATE sessions SET last_seen = ? WHERE session_id = ?",
+            "UPDATE sessions SET last_seen = ?, awaiting_input = 0 WHERE session_id = ?",
             (_now(), session_id),
         )
 
