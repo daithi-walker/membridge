@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MemBridge</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -254,8 +255,9 @@
     /* overflow:hidden only on td — th needs visible overflow so the ::after resize handle isn't clipped */
     th.col-status, th.col-project, th.col-desc, th.col-branch,
     th.col-last, th.col-id, th.col-prompts { white-space: nowrap; overflow: visible; }
-    td.col-status, td.col-project, td.col-desc, td.col-branch,
+    td.col-status, td.col-project, td.col-branch,
     td.col-last, td.col-id, td.col-prompts { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    td.col-desc { overflow: hidden; white-space: normal; word-break: break-word; vertical-align: top; }
     .col-prompts { text-align: right; }
 
     .btn-star {
@@ -295,7 +297,7 @@
     }
 
     #sessions-table-wrap { overflow-x: auto; }
-    #sessions-table { table-layout: fixed; width: max-content; min-width: 100%; }
+    #sessions-table { table-layout: fixed; width: 100%; }
     th { position: relative; user-select: none; }
     th::after {
       content: ''; position: absolute; right: 0; top: 20%; bottom: 20%;

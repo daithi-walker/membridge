@@ -462,7 +462,7 @@ function buildRow(s) {
 
   function renderDescText() {
     const _desc = s.description ? stripMd(s.description) : '';
-    descTd.textContent = _desc.slice(0, 120) + (_desc.length > 120 ? '…' : '');
+    descTd.textContent = _desc;
     descTd.title = 'Click to edit description';
     descTd.style.cursor = 'text';
   }
@@ -1044,14 +1044,13 @@ function formatDateTime(isoStr) {
 
 const COL_WIDTHS_KEY = 'membridge_col_widths';
 const COL_DEFAULTS = {
-  'col-status':  160,
-  'col-project': 120,
-
-  'col-desc':    320,
-  'col-branch':  140,
-  'col-last':    110,
-  'col-id':       96,
-  'col-prompts':  70,
+  'col-status':  150,
+  'col-project': 110,
+  'col-desc':    260,
+  'col-branch':  120,
+  'col-last':    100,
+  'col-id':       88,
+  'col-prompts':  64,
 };
 
 let colWidths = {};
@@ -1084,7 +1083,8 @@ function initColResize() {
       const rect = th.getBoundingClientRect();
       if (e.clientX < rect.right - 12) return;
       e.preventDefault();
-      const startW = colWidths[col] || rect.width;
+      const startW = rect.width;
+      colWidths[col] = startW; // sync stored value to actual rendered width before drag
       const startX = e.clientX;
       th.classList.add('col-resizing');
 
