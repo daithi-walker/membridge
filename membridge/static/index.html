@@ -823,6 +823,22 @@
         border-bottom: none;
       }
       .panel-actions { flex-wrap: wrap; }
+
+      /* Drag handle pill at top of mobile sheet */
+      #side-panel::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        margin: 10px auto 0;
+        flex-shrink: 0;
+      }
+      #panel-close {
+        font-size: 22px;
+        padding: 2px 8px;
+      }
     }
   </style>
 </head>
