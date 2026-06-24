@@ -356,8 +356,8 @@ function buildRow(s) {
   statusTd.appendChild(starBtn);
 
   // Focus button — state machine:
-  //   awaiting_input → green ◉ (wants your response)
-  //   active + working → orange ◉ (Claude is processing)
+  //   awaiting_input → yellow (wants your response: ? for decision, ✎ for text)
+  //   active + working → green ◉ (Claude is processing)
   //   stale → amber ↩ (needs resume)
   //   idle → grey ⌘
   const focusRowBtn = document.createElement('button');
@@ -366,8 +366,18 @@ function buildRow(s) {
   let _focusTitle = 'Focus tab';
   if (s.awaiting_input) {
     _focusCls += ' btn-focus-row-awaiting';
-    _focusIcon = '◉';
-    _focusTitle = 'Awaiting your input';
+    const isDecision = s.last_stop_reason && s.last_stop_reason.includes('permission_prompt');
+    const isAskUser = s.last_stop_reason && s.last_stop_reason.includes('ask_user_question');
+    if (isDecision) {
+      _focusIcon = '?';
+      _focusTitle = 'Needs a decision';
+    } else if (isAskUser) {
+      _focusIcon = '✎';
+      _focusTitle = 'Needs text input';
+    } else {
+      _focusIcon = '✎';
+      _focusTitle = 'Awaiting your input';
+    }
   } else if (s.status === 'stale') {
     _focusCls += ' btn-focus-row-resume';
     _focusIcon = '↩';
