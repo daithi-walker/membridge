@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -16,16 +18,6 @@ from .summariser import summarise
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="MemBridge")
-
-
-@app.middleware("http")
-async def security_headers(request: Request, call_next) -> Response:
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    return response
 
 # SSE broadcast — set of queues, one per connected dashboard tab
 _sse_clients: set[asyncio.Queue] = set()
@@ -43,6 +35,7 @@ def _broadcast(event: str) -> None:
             dead.add(q)
     _sse_clients.difference_update(dead)
 
+
 _STATIC_DIR = Path(__file__).parent / "static"
 
 
@@ -51,11 +44,25 @@ def _log_task_exception(task: asyncio.Task) -> None:
         logger.error("Background task %s failed: %s", task.get_name(), task.exception())
 
 
-@app.on_event("startup")
-async def startup() -> None:
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     db.init_db()
     task = asyncio.create_task(_poll_summary_files(), name="poll_summary_files")
     task.add_done_callback(_log_task_exception)
+    yield
+    task.cancel()
+
+
+app = FastAPI(title="MemBridge", lifespan=_lifespan)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next) -> Response:
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
