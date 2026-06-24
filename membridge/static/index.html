@@ -279,15 +279,15 @@
     }
     .btn-focus-row-resume:hover { background: rgba(228,166,54,0.12); }
     .btn-focus-row-working {
-      border-color: #E4A636; color: #E4A636;
+      border-color: #4caf50; color: #4caf50;
       animation: pulse-awaiting 1.2s ease-in-out infinite;
     }
-    .btn-focus-row-working:hover { background: rgba(228,166,54,0.12); }
+    .btn-focus-row-working:hover { background: rgba(76,175,80,0.12); }
     .btn-focus-row-awaiting {
-      border-color: #4caf50; color: #4caf50;
+      border-color: #f0c040; color: #f0c040;
       animation: pulse-awaiting 2s ease-in-out infinite;
     }
-    .btn-focus-row-awaiting:hover { background: rgba(76,175,80,0.12); }
+    .btn-focus-row-awaiting:hover { background: rgba(240,192,64,0.12); }
     @keyframes row-flash { 0%,100% { background: transparent; } 50% { background: rgba(76,175,80,0.15); } }
     .row-flash { animation: row-flash 0.6s ease-in-out 2; }
     @keyframes pulse-awaiting {
@@ -768,7 +768,7 @@
     </div>
     <div id="awaiting-badge" style="display:none;position:relative;margin-left:auto">
       <span id="awaiting-count" style="
-        background:#4caf50;color:#000;border-radius:99px;
+        background:#f0c040;color:#000;border-radius:99px;
         font-size:11px;font-weight:700;padding:2px 7px;
         animation:pulse-awaiting 2s ease-in-out infinite;
         cursor:pointer;
@@ -859,8 +859,8 @@
     <div id="content">
       <div id="legend" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         <span style="font-weight:600;margin-right:2px">Focus button:</span>
-        <span><span style="color:#4caf50;font-weight:700">◉</span> Awaiting your input</span>
-        <span><span style="color:#E4A636;font-weight:700">◉</span> Claude is working</span>
+        <span><span style="color:#4caf50;font-weight:700">◉</span> Claude is working</span>
+        <span><span style="color:#f0c040;font-weight:700">◉</span> Awaiting your input</span>
         <span><span style="color:#E4A636;font-weight:700">↩</span> Session stale — resume</span>
         <span><span style="color:var(--text-muted);font-weight:700">⌘</span> Idle</span>
       </div>

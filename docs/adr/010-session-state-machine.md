@@ -15,9 +15,9 @@ The focus button implements a four-state machine, priority order:
 
 | Priority | Condition | Colour | Icon | Meaning |
 |---|---|---|---|---|
-| 1 | `awaiting_input = 1` | Green `#4caf50` | `◉` pulsing slow | Claude finished; wants your response |
+| 1 | `awaiting_input = 1` | Yellow `#f0c040` | `◉` pulsing slow | Claude finished; wants your response |
 | 2 | `status = 'stale'` | Amber `#E4A636` | `↩` | Session dead; needs `claude --resume` |
-| 3 | `status = 'active'` | Orange `#E4A636` | `◉` pulsing fast | Claude is actively working |
+| 3 | `status = 'active'` | Green `#4caf50` | `◉` pulsing fast | Claude is actively working |
 | 4 | Otherwise (idle) | Grey | `⌘` | Alive, no action needed |
 
 Priority 1 beats priority 2: a stale session can still be `awaiting_input` (Stop fired before the PID died). Green takes precedence because user action is needed regardless of whether resume is also required.
