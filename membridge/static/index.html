@@ -253,11 +253,10 @@
     .col-status  { width: 160px; white-space: nowrap; }
     .col-project { width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .col-id      { width: 90px; white-space: nowrap; }
-    .col-iterm   { width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .col-branch  { width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .col-last    { width: 100px; white-space: nowrap; }
     .col-prompts { width: 64px; text-align: right; }
-    .col-desc    { width: 240px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .col-desc    { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
     .btn-star {
       background: none; border: none; cursor: pointer;
@@ -266,7 +265,6 @@
     }
     .btn-star:hover { opacity: 1; color: #E4A636; }
     .btn-star-on { opacity: 1; color: #E4A636; }
-    .col-chevron { width: 28px; text-align: right; padding-right: 8px; color: var(--text-muted); }
 
     .btn-focus-row {
       background: none; border: 1px solid var(--border); border-radius: 4px;
@@ -317,7 +315,6 @@
     .last-text    { font-size: 12px; color: var(--text-muted); }
     .count-text   { font-size: 12px; color: var(--text-muted); }
 
-    .chevron { font-size: 16px; }
 
     /* ── Session modal ── */
     #panel-overlay {
@@ -873,12 +870,10 @@
             <th class="col-status">Status<span class="col-resize-handle" data-col="col-status"></span></th>
             <th class="col-project">Project<span class="col-resize-handle" data-col="col-project"></span></th>
             <th class="col-id">ID<span class="col-resize-handle" data-col="col-id"></span></th>
-            <th class="col-iterm">Activity<span class="col-resize-handle" data-col="col-iterm"></span></th>
             <th class="col-branch">Branch<span class="col-resize-handle" data-col="col-branch"></span></th>
             <th class="col-last">Last Active<span class="col-resize-handle" data-col="col-last"></span></th>
             <th class="col-prompts">Prompts<span class="col-resize-handle" data-col="col-prompts"></span></th>
             <th class="col-desc">Description<span class="col-resize-handle" data-col="col-desc"></span></th>
-            <th class="col-chevron"></th>
           </tr>
         </thead>
         <tbody id="sessions-body"></tbody>

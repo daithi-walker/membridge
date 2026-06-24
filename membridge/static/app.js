@@ -444,10 +444,6 @@ function buildRow(s) {
   });
   tr.appendChild(idTd);
 
-  const itermTd = td('col-iterm');
-  itermTd.innerHTML = `<span class="iterm-text">${esc(s.iterm_tab || '—')}</span>`;
-  tr.appendChild(itermTd);
-
   const branchTd = td('col-branch');
   branchTd.innerHTML = `<span class="branch-text">${esc(s.git_branch || '—')}</span>`;
   tr.appendChild(branchTd);
@@ -465,10 +461,6 @@ function buildRow(s) {
   const _desc = s.description ? stripMd(s.description) : '';
   descTd.textContent = _desc.slice(0, 100) + (_desc.length > 100 ? '…' : '');
   tr.appendChild(descTd);
-
-  const chevTd = td('col-chevron');
-  chevTd.innerHTML = `<span class="chevron">›</span>`;
-  tr.appendChild(chevTd);
 
   tr.addEventListener('click', () => openPanel(s, true));
   tr.style.cursor = 'pointer';
