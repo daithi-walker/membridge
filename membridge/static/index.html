@@ -308,7 +308,8 @@
     }
 
     .project-name { font-weight: 600; color: var(--text); }
-    .session-id   { font-family: monospace; font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .session-id   { font-family: monospace; font-size: 10px; color: var(--text-muted); margin-top: 2px; cursor: pointer; }
+    .session-id:hover { color: var(--accent); }
 
     .iterm-text   { font-size: 12px; color: var(--text); }
     .branch-text  { font-family: monospace; font-size: 12px; color: var(--text-muted); }
@@ -892,7 +893,10 @@
       <div class="panel-header">
         <div class="panel-title">
           <h2 id="panel-project">—</h2>
-          <div class="panel-sub" id="panel-session-id"></div>
+          <div class="panel-sub" style="display:flex;align-items:center;gap:6px">
+            <span id="panel-session-id"></span>
+            <button id="panel-copy-id" title="Copy session ID" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:0;line-height:1" onclick="navigator.clipboard.writeText(document.getElementById('panel-session-id').textContent).then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='⎘',1500)})">⎘</button>
+          </div>
         </div>
         <span id="panel-status" class="pill">—</span>
         <button id="panel-close" title="Close (Esc)">✕</button>
