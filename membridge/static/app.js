@@ -430,7 +430,7 @@ function buildRow(s) {
   projTd.textContent = s.project_name;
   tr.appendChild(projTd);
 
-  const itermTd = td('col-iterm');
+  const itermTd = td('col-activity');
   itermTd.innerHTML = `<span class="iterm-text" style="font-size:12px;color:var(--text-muted)">${esc(s.iterm_tab || '—')}</span>`;
   tr.appendChild(itermTd);
 
@@ -887,7 +887,7 @@ const COL_WIDTHS_KEY = 'membridge_col_widths';
 const COL_DEFAULTS = {
   'col-status':  160,
   'col-project': 120,
-  'col-iterm':   200,
+  'col-activity':   200,
   'col-desc':    320,
   'col-branch':  140,
   'col-last':    110,
