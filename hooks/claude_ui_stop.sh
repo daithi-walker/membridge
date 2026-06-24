@@ -23,6 +23,6 @@ curl -s -X POST http://localhost:7842/api/stop \
   -H "Content-Type: application/json" \
   -d "$BODY" \
   --max-time 3 \
-  >/dev/null 2>&1 &
+  >/dev/null 2>&1 || echo "[$(date -u +%FT%TZ)] stop failed for $SESSION_ID" >> /tmp/membridge-hook.log &
 
 exit 0

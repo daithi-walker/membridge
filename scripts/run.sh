@@ -15,7 +15,9 @@ if [ -f "$ENV_FILE" ]; then
   set +a
 fi
 
+HOST="${MEMBRIDGE_HOST:-127.0.0.1}"
+
 exec "$VENV/bin/uvicorn" membridge.server:app \
-  --host 0.0.0.0 \
+  --host "$HOST" \
   --port 7842 \
   --app-dir "$PROJECT_DIR"
