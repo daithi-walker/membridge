@@ -251,7 +251,8 @@
     td { padding: 10px 16px; vertical-align: top; }
 
     .col-status  { width: 160px; white-space: nowrap; }
-    .col-project { width: 140px; }
+    .col-project { width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-id      { width: 90px; white-space: nowrap; }
     .col-iterm   { width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .col-branch  { width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .col-last    { width: 100px; white-space: nowrap; }
@@ -871,6 +872,7 @@
           <tr>
             <th class="col-status">Status<span class="col-resize-handle" data-col="col-status"></span></th>
             <th class="col-project">Project<span class="col-resize-handle" data-col="col-project"></span></th>
+            <th class="col-id">ID<span class="col-resize-handle" data-col="col-id"></span></th>
             <th class="col-iterm">Activity<span class="col-resize-handle" data-col="col-iterm"></span></th>
             <th class="col-branch">Branch<span class="col-resize-handle" data-col="col-branch"></span></th>
             <th class="col-last">Last Active<span class="col-resize-handle" data-col="col-last"></span></th>

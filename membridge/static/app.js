@@ -427,18 +427,22 @@ function buildRow(s) {
   tr.appendChild(statusTd);
 
   const projTd = td('col-project');
+  projTd.textContent = s.project_name;
+  tr.appendChild(projTd);
+
+  const idTd = td('col-id');
   const shortId = s.session_id.slice(0, 8);
-  projTd.innerHTML = `<div class="project-name">${esc(s.project_name)}</div><div class="session-id" title="Click to copy session ID">${esc(shortId)}…</div>`;
-  projTd.querySelector('.session-id').addEventListener('click', e => {
+  idTd.innerHTML = `<span class="session-id" title="Click to copy full session ID">${esc(shortId)}…</span>`;
+  idTd.querySelector('.session-id').addEventListener('click', e => {
     e.stopPropagation();
     navigator.clipboard.writeText(s.session_id).then(() => {
-      const el = projTd.querySelector('.session-id');
+      const el = idTd.querySelector('.session-id');
       const prev = el.textContent;
       el.textContent = 'copied!';
       setTimeout(() => { el.textContent = prev; }, 1500);
     });
   });
-  tr.appendChild(projTd);
+  tr.appendChild(idTd);
 
   const itermTd = td('col-iterm');
   itermTd.innerHTML = `<span class="iterm-text">${esc(s.iterm_tab || '—')}</span>`;
