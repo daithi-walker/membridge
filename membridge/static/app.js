@@ -432,8 +432,49 @@ function buildRow(s) {
 
   const descTd = td('col-desc');
   descTd.style.cssText = 'font-size:12px;color:var(--text-muted)';
-  const _desc = s.description ? stripMd(s.description) : '';
-  descTd.textContent = _desc.slice(0, 100) + (_desc.length > 100 ? '…' : '');
+
+  function renderDescText() {
+    const _desc = s.description ? stripMd(s.description) : '';
+    descTd.textContent = _desc.slice(0, 120) + (_desc.length > 120 ? '…' : '');
+    descTd.title = 'Click to edit description';
+    descTd.style.cursor = 'text';
+  }
+  renderDescText();
+
+  descTd.addEventListener('click', e => {
+    e.stopPropagation();
+    if (descTd.querySelector('input')) return;
+    const orig = s.description ? stripMd(s.description) : '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = orig;
+    input.style.cssText = 'width:100%;font-size:12px;background:var(--surface2);color:var(--text);border:1px solid var(--accent);border-radius:3px;padding:1px 4px;box-sizing:border-box;outline:none';
+    descTd.textContent = '';
+    descTd.style.cursor = '';
+    descTd.appendChild(input);
+    input.focus();
+    input.select();
+
+    async function save() {
+      const val = input.value.trim();
+      if (val !== orig) {
+        await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: val }),
+        });
+        s.description = val;
+      }
+      renderDescText();
+    }
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { s.description = orig; renderDescText(); }
+    });
+    input.addEventListener('blur', save);
+  });
+
   tr.appendChild(descTd);
 
   const branchTd = td('col-branch');
