@@ -65,6 +65,32 @@ curl http://localhost:7842/api/sessions | python3 -c "import sys,json; s=json.lo
 
 ---
 
+## 2026-06-23 — UI cleanup + session ID column + bug fixes
+
+**No breaking changes — `git pull` is sufficient.**
+
+### What changed
+
+- Activity column removed (was iTerm tab title, rarely useful in the table — still in modal)
+- Vestigial `›` chevron column removed
+- Description column now fills remaining table width
+- Session ID split into its own column (8-char prefix); click copies full UUID
+- Modal: copy button (⎘) next to full session ID
+- Focus button: `?` for decision prompts, `✎` for text input, `◉` working — distinguished via `last_stop_reason`
+- Bug fix: Notification hook reason no longer overwritten by subsequent empty Stop reason
+- Bug fix: answering a decision prompt now immediately clears `awaiting_input` (transitions to working)
+- Ideas catalog added at `docs/ideas/`
+
+### Migration steps
+
+```bash
+git pull
+```
+
+Server restart not required — static file changes are live.
+
+---
+
 ## 2026-06-23 — Notification hook + awaiting_input state machine
 
 **No breaking changes — but `scripts/install.sh` must be re-run to register the new hook.**

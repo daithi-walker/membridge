@@ -6,6 +6,13 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Activity column and vestigial › chevron removed; Description column fills remaining width
+- Session ID as separate column (short 8-char prefix); click to copy full UUID to clipboard
+- Modal: copy button (⎘) next to full session ID in header
+- Focus button icons: `?` for decision prompts, `✎` for text input, `◉` for working — distinguished via `last_stop_reason`
+- Bug fix: `last_stop_reason` preserved when Stop hook fires after Notification hook (previously overwritten with empty string)
+- Bug fix: `touch_session` now clears `awaiting_input` so answering a decision transitions immediately to working state
+- `ideas/` catalog added under `docs/` — speculative features blocked on external capabilities
 - Notification prefs in Settings modal — Pop-ups and Sound toggles (sound off by default); prefs synced to DB
 - `Notification` hook (matcher: `permission_prompt`) — sets `awaiting_input` immediately when Claude asks permission mid-turn
 - SSE push-refresh (`/api/events`) — dashboard updates instantly on heartbeat/stop; eliminates 30s poll lag
