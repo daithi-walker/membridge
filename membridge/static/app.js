@@ -217,7 +217,7 @@ async function syncAndRefresh() {
   indicator.classList.add('spinning');
   indicator.title = 'Syncing tab names…';
   try {
-    await fetch('${BASE}/sync-tabs', { method: 'POST' });
+    await fetch(`${BASE}/sync-tabs`, { method: 'POST' });
   } catch (_) {}
   // iTerm2 API takes ~30s; poll every 5s for up to 40s then give up
   let waited = 0;
@@ -402,7 +402,7 @@ function buildRow(s) {
     focusRowBtn.textContent = '…';
     focusRowBtn.disabled = true;
     try {
-      const res = await fetch('${BASE}/focus', {
+      const res = await fetch(`${BASE}/focus`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -561,7 +561,7 @@ function buildCard(s) {
     focusBtn.textContent = '…';
     focusBtn.disabled = true;
     try {
-      await fetch('${BASE}/focus', {
+      await fetch(`${BASE}/focus`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: s.session_id, pid: s.pid, cwd: s.cwd, iterm_session_uuid: s.iterm_session_uuid, tab_name: s.iterm_tab || s.project_name }),
       });
@@ -650,7 +650,7 @@ function openPanel(s, scrollIntoView) {
   focusBtn.onclick = async () => {
     focusBtn.textContent = '…';
     try {
-      const res = await fetch('${BASE}/focus', {
+      const res = await fetch(`${BASE}/focus`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: s.session_id, pid: s.pid || null, cwd: s.cwd || null, tab_name: s.iterm_tab || null, iterm_session_uuid: s.iterm_session_uuid || null }),
