@@ -5,6 +5,8 @@ let sessions = [];
 let showFilter = new Set(['active', 'idle']);
 let projectFilter = new Set(); // empty = all projects
 let activePanel = null;
+// Set to true while a table-row inline edit is active — suppresses render() so the DOM isn't clobbered mid-edit
+let editingInline = false;
 
 // Use the page's own origin so focus/sync work from LAN (phone), not just localhost
 const BASE = window.location.origin;
@@ -263,7 +265,8 @@ async function fetchSessions() {
     const res = await fetch('/api/sessions');
     sessions = await res.json();
     updateProjectFilter(sessions);
-    render(sessions);
+    // Don't clobber an active inline edit — the save() handler will call renderDescText() itself
+    if (!editingInline) render(sessions);
   } catch (e) {
     console.error('Fetch failed', e);
   } finally {
@@ -478,23 +481,36 @@ function buildRow(s) {
     descTd.appendChild(input);
     input.focus();
     input.select();
+    editingInline = true;
 
     async function save() {
       const val = input.value.trim();
       if (val !== orig) {
-        await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ description: val }),
-        });
-        s.description = val;
+        try {
+          const res = await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description: val }),
+          });
+          if (res.ok) {
+            s.description = val;
+            // Keep the sessions array in sync so the next render uses the saved value
+            const idx = sessions.findIndex(r => r.session_id === s.session_id);
+            if (idx !== -1) sessions[idx].description = val;
+          } else {
+            showToast('Failed to save description');
+          }
+        } catch (_) {
+          showToast('Failed to save description');
+        }
       }
+      editingInline = false;
       renderDescText();
     }
 
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      if (e.key === 'Escape') { s.description = orig; renderDescText(); }
+      if (e.key === 'Escape') { editingInline = false; s.description = orig; renderDescText(); }
     });
     input.addEventListener('blur', save);
   });
