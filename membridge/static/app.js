@@ -1,4 +1,5 @@
 let REFRESH_MS = 30_000;
+let ticketBaseUrl = '';
 let refreshTimer = null;
 let sessions = [];
 // showFilter: which session types are visible. Default: active + idle (not stale, not archived)
@@ -189,6 +190,7 @@ async function openSettings() {
     document.getElementById('set-refresh').value = s.refresh_interval_secs;
     document.getElementById('set-notif-popup').checked = !!s.notif_popup;
     document.getElementById('set-notif-sound').checked = !!s.notif_sound;
+    document.getElementById('set-ticket-base-url').value = s.ticket_base_url || '';
   } catch (e) {
     console.error('Failed to load settings', e);
   }
@@ -219,12 +221,14 @@ async function saveSettings() {
     const notifSound = document.getElementById('set-notif-sound').checked;
     localStorage.setItem('mb-notif-popup', notifPopup);
     localStorage.setItem('mb-notif-sound', notifSound);
+    const ticketBaseUrl = document.getElementById('set-ticket-base-url').value.trim();
     await fetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notif_popup: notifPopup ? 1 : 0, notif_sound: notifSound ? 1 : 0 }),
+      body: JSON.stringify({ notif_popup: notifPopup ? 1 : 0, notif_sound: notifSound ? 1 : 0, ticket_base_url: ticketBaseUrl }),
     });
     REFRESH_MS = refresh * 1000;
+    ticketBaseUrl = document.getElementById('set-ticket-base-url').value.trim();
     restartRefreshTimer();
     closeSettings();
     fetchSessions();
@@ -879,7 +883,17 @@ function makeTicketTag(ticket, s) {
   const tag = document.createElement('span');
   tag.className = 'ticket-tag';
   tag.dataset.ticket = ticket;
-  const label = document.createTextNode(`#${ticket} `);
+  let label;
+  if (ticketBaseUrl) {
+    label = document.createElement('a');
+    label.href = ticketBaseUrl.replace(/\/$/, '') + '/' + encodeURIComponent(ticket);
+    label.target = '_blank';
+    label.rel = 'noopener noreferrer';
+    label.textContent = ticket;
+    label.className = 'ticket-tag-link';
+  } else {
+    label = document.createTextNode(`${ticket} `);
+  }
   tag.appendChild(label);
   const x = document.createElement('button');
   x.className = 'ticket-tag-x';
@@ -1265,6 +1279,7 @@ function connectSSE() {
     const res = await fetch('/api/settings');
     const s = await res.json();
     REFRESH_MS = s.refresh_interval_secs * 1000;
+    ticketBaseUrl = s.ticket_base_url || '';
   } catch (_) {}
   initColResize();
   fetchSessions();

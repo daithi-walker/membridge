@@ -6,6 +6,7 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Ticket base URL setting — configure a base URL (Jira, ADO, Linear, etc.) in Settings; ticket IDs in the panel become clickable links; multi-tracker friendly (one URL per workspace)
 - `/membridge-note <text>` slash command — inject freeform text verbatim into session history with `source: user`; no summarization, no file params, single line
 - `/membridge-rename` replaces `/membridge-tag` — same action (set session description), clearer name
 - `/membridge-link` slash command — link current session to another by ID prefix; no-arg lists existing links

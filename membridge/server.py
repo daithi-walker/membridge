@@ -101,6 +101,7 @@ class SettingsPatch(BaseModel):
     refresh_interval_secs: int | None = None
     notif_popup: int | None = None
     notif_sound: int | None = None
+    ticket_base_url: str | None = None
 
 
 class FocusPayload(BaseModel):

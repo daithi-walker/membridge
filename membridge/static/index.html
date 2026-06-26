@@ -749,6 +749,7 @@
       border-radius: 0;
     }
     button.ticket-tag-x:hover { color: var(--text); border: none; background: transparent; }
+    a.ticket-tag-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
     .ticket-text-input {
       background: transparent;
       border: none;
@@ -991,6 +992,13 @@
           </label>
         </div>
         <div class="setting-hint">When a session awaits your input (macOS only)</div>
+      </div>
+      <div class="setting-row">
+        <label>Ticket base URL</label>
+        <div class="setting-input-row">
+          <input type="url" id="set-ticket-base-url" placeholder="https://jira.example.com/browse/" style="flex:1;min-width:0">
+        </div>
+        <div class="setting-hint">Ticket IDs become clickable links — leave blank to disable</div>
       </div>
       <div class="settings-actions">
         <button id="settings-cancel">Cancel</button>

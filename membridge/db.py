@@ -93,6 +93,7 @@ _SETTINGS_DEFAULTS = {
     "refresh_interval_secs": "30",
     "notif_popup":           "1",
     "notif_sound":           "0",      # off by default
+    "ticket_base_url":       "",       # e.g. https://jira.example.com/browse/
 }
 
 _MIGRATIONS = [
@@ -417,16 +418,21 @@ def get_settings() -> dict:
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
     result = dict(_SETTINGS_DEFAULTS)
     result.update({r["key"]: r["value"] for r in rows})
-    return {k: int(v) for k, v in result.items()}
+    # Cast each value to match the type of its default; string defaults stay as strings
+    return {k: (int(v) if isinstance(_SETTINGS_DEFAULTS.get(k), str) and _SETTINGS_DEFAULTS[k].lstrip("-").isdigit() else v) for k, v in result.items()}
 
 
 def update_settings(updates: dict) -> dict:
-    allowed = set(_SETTINGS_DEFAULTS.keys())  # includes notif_popup, notif_sound
+    allowed = set(_SETTINGS_DEFAULTS.keys())
     with _conn() as conn:
         for k, v in updates.items():
-            if k in allowed:
-                conn.execute(
-                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-                    (k, str(int(v))),
-                )
+            if k not in allowed:
+                continue
+            # Store numeric defaults as ints; string defaults (e.g. ticket_base_url) as-is
+            default = _SETTINGS_DEFAULTS[k]
+            stored = str(int(v)) if default.lstrip("-").isdigit() else str(v)
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                (k, stored),
+            )
     return get_settings()
