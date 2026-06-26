@@ -27,13 +27,13 @@ pinBtn.addEventListener('click', () => {
   if (pinnedOrder) {
     pinnedOrder = null;
     pinBtn.classList.remove('active');
-    pinBtn.title = 'Pin order';
+    pinBtn.dataset.tooltip = 'Pin row order — prevents sessions reshuffling while you work';
     render(sessions);
   } else {
     // Snapshot visible order at this moment
     pinnedOrder = sessions.map(s => s.session_id);
     pinBtn.classList.add('active');
-    pinBtn.title = 'Unpin order';
+    pinBtn.dataset.tooltip = 'Unpin row order — allow sessions to re-sort by status';
   }
 });
 const panelOverlay = document.getElementById('panel-overlay');
@@ -691,7 +691,7 @@ function openPanel(s, scrollIntoView) {
   if (!pinnedOrder) {
     pinnedOrder = sessions.map(s => s.session_id);
     pinBtn.classList.add('active');
-    pinBtn.title = 'Unpin order';
+    pinBtn.dataset.tooltip = 'Unpin row order — allow sessions to re-sort by status';
   }
   activePanel = s.session_id;
 

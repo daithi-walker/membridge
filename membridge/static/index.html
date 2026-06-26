@@ -710,19 +710,30 @@
       line-height: 1;
     }
     #settings-btn:hover { border-color: var(--accent); color: var(--accent); }
-    #pin-order-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      padding: 3px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      font-family: inherit;
-      line-height: 1;
-    }
-    #pin-order-btn:hover { border-color: var(--accent); color: var(--accent); }
     #pin-order-btn.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 7px;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: normal;
+      width: 220px;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s ease 0.2s;
+      z-index: 9999;
+    }
+    [data-tooltip]:hover::after { opacity: 1; }
 
     /* ── Ticket tags ── */
     .tickets-input-wrap {
@@ -962,7 +973,6 @@
         cursor:pointer;
       " title="Click to jump to awaiting session"></span>
     </div>
-    <button id="pin-order-btn" title="Pin order">⊞</button>
     <button id="theme-toggle" title="Toggle theme">☀</button>
     <button id="settings-btn" title="Settings">⚙</button>
     <button id="refresh-btn" title="Refresh">↻</button>
@@ -1048,6 +1058,7 @@
         <div id="proj-checkboxes"></div>
       </div>
     </div>
+    <button id="pin-order-btn" class="filter-btn" data-tooltip="Pin row order — prevents sessions reshuffling while you work">⚓</button>
     <span id="summary-count"></span>
   </div>
 
