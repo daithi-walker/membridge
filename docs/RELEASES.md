@@ -4,6 +4,17 @@ Migration notes and breaking changes for each significant update. See `CHANGELOG
 
 ---
 
+## 2026-06-25 — Session links
+
+**No migration required.** The `session_links` table is created automatically by `init_db()` on first server start after pulling. No manual SQL or `install.sh` re-run needed.
+
+Restart the server to pick up the new routes:
+```bash
+launchctl kickstart -k gui/$(id -u)/com.daihi.membridge
+```
+
+---
+
 ## 2026-06-23 — Drop Docker / Native Host Process
 
 **Breaking change — requires manual migration on every machine.**

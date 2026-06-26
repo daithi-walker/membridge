@@ -403,9 +403,55 @@ def notification(payload: NotificationPayload) -> dict:
     return {"ok": True}
 
 
+class LinkPayload(BaseModel):
+    target_id: str
+
+
 class PushSummaryPayload(BaseModel):
     text: str
     source: str = "skill"
+
+
+@app.get("/api/sessions/{session_id}/links")
+def get_links(session_id: str) -> list[dict]:
+    if not db.get_session(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return [dict(r) for r in db.get_links(session_id)]
+
+
+@app.post("/api/sessions/{session_id}/links")
+def add_link(session_id: str, payload: LinkPayload) -> dict:
+    if not payload.target_id:
+        raise HTTPException(status_code=400, detail="target_id required")
+    if not db.get_session(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    # Resolve prefix to full session_id
+    target = _resolve_session(payload.target_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Target session not found")
+    if target == session_id:
+        raise HTTPException(status_code=400, detail="Cannot link a session to itself")
+    inserted = db.add_link(session_id, target)
+    _broadcast("refresh")
+    return {"ok": True, "status": "added" if inserted else "already_linked"}
+
+
+@app.delete("/api/sessions/{session_id}/links/{target_id}")
+def remove_link(session_id: str, target_id: str) -> dict:
+    if not db.get_session(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    removed = db.remove_link(session_id, target_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Link not found")
+    _broadcast("refresh")
+    return {"ok": True}
+
+
+def _resolve_session(id_or_prefix: str) -> str | None:
+    """Return full session_id for an exact ID or unique prefix. None if not found."""
+    rows = db.list_sessions()
+    matches = [r["session_id"] for r in rows if r["session_id"].startswith(id_or_prefix)]
+    return matches[0] if len(matches) == 1 else None
 
 
 @app.post("/api/sessions/{session_id}/push-summary")

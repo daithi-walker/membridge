@@ -387,6 +387,15 @@ function buildRow(s) {
   });
   statusTd.appendChild(starBtn);
 
+  // Link indicator
+  if (s.linked_session_ids && s.linked_session_ids.length) {
+    const linkInd = document.createElement('span');
+    linkInd.className = 'link-indicator';
+    linkInd.textContent = '🔗';
+    linkInd.title = `${s.linked_session_ids.length} linked session${s.linked_session_ids.length > 1 ? 's' : ''}`;
+    statusTd.appendChild(linkInd);
+  }
+
   // Focus button — state machine:
   //   awaiting_input → yellow (wants your response: ? for decision, ✎ for text)
   //   active + working → green ◉ (Claude is processing)
@@ -768,6 +777,7 @@ function openPanel(s, scrollIntoView) {
   notesArea._session = s;
 
   initTicketsInput(s);
+  initLinksSection(s);
 
   panelOverlay.classList.add('open');
 }
@@ -904,6 +914,105 @@ async function saveTickets(s) {
   } catch (_) {
     showToast('Failed to save tickets');
   }
+}
+
+async function initLinksSection(s) {
+  const chipsRow = document.getElementById('panel-links-chips');
+  const searchInput = document.getElementById('panel-link-search');
+  const dropdown = document.getElementById('panel-link-dropdown');
+
+  chipsRow.innerHTML = '';
+  searchInput.value = '';
+  dropdown.style.display = 'none';
+
+  let linkedIds = [];
+
+  async function loadLinks() {
+    try {
+      const res = await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}/links`);
+      const links = await res.json();
+      linkedIds = links.map(l => l.session_id);
+      chipsRow.innerHTML = '';
+      for (const link of links) {
+        chipsRow.appendChild(makeLinkChip(link, s));
+      }
+    } catch (_) {}
+  }
+
+  function makeLinkChip(link, owner) {
+    const chip = document.createElement('span');
+    chip.className = 'link-chip';
+    chip.title = link.description ? stripMd(link.description) : link.session_id;
+    chip.innerHTML = `<span class="link-chip-project">${esc(link.project_name)}</span>` +
+      (link.git_branch ? `<span class="link-chip-branch">${esc(link.git_branch)}</span>` : '') +
+      `<span class="link-chip-id">${esc(link.session_id.slice(0, 8))}</span>`;
+    chip.addEventListener('click', (e) => {
+      if (e.target.classList.contains('link-chip-x')) return;
+      const target = sessions.find(r => r.session_id === link.session_id);
+      if (target) openPanel(target, true);
+    });
+    const x = document.createElement('button');
+    x.className = 'link-chip-x';
+    x.textContent = '×';
+    x.title = 'Remove link';
+    x.onclick = async (e) => {
+      e.stopPropagation();
+      try {
+        await fetch(`/api/sessions/${encodeURIComponent(owner.session_id)}/links/${encodeURIComponent(link.session_id)}`, { method: 'DELETE' });
+        await loadLinks();
+        // Update sessions[] so row indicator refreshes
+        const idx = sessions.findIndex(r => r.session_id === owner.session_id);
+        if (idx !== -1) sessions[idx].linked_session_ids = linkedIds;
+      } catch (_) { showToast('Failed to remove link'); }
+    };
+    chip.appendChild(x);
+    return chip;
+  }
+
+  // Search dropdown
+  searchInput.oninput = () => {
+    const q = searchInput.value.trim().toLowerCase();
+    dropdown.style.display = 'none';
+    dropdown.innerHTML = '';
+    if (!q) return;
+    const candidates = sessions.filter(r =>
+      r.session_id !== s.session_id &&
+      !linkedIds.includes(r.session_id) &&
+      (r.project_name.toLowerCase().includes(q) ||
+       (r.git_branch || '').toLowerCase().includes(q) ||
+       r.session_id.startsWith(q) ||
+       (r.description || '').toLowerCase().includes(q))
+    ).slice(0, 5);
+    if (!candidates.length) return;
+    for (const r of candidates) {
+      const item = document.createElement('div');
+      item.className = 'link-search-item';
+      item.innerHTML = `<div class="link-search-item-name">${esc(r.project_name)}</div>` +
+        `<div class="link-search-item-meta">${esc(r.session_id.slice(0, 8))}${r.git_branch ? ' · ' + esc(r.git_branch) : ''}</div>`;
+      item.addEventListener('mousedown', async (e) => {
+        e.preventDefault();
+        searchInput.value = '';
+        dropdown.style.display = 'none';
+        try {
+          await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}/links`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_id: r.session_id }),
+          });
+          await loadLinks();
+          const idx = sessions.findIndex(row => row.session_id === s.session_id);
+          if (idx !== -1) sessions[idx].linked_session_ids = linkedIds;
+        } catch (_) { showToast('Failed to add link'); }
+      });
+      dropdown.appendChild(item);
+    }
+    dropdown.style.display = 'block';
+  };
+
+  searchInput.onblur = () => { setTimeout(() => { dropdown.style.display = 'none'; }, 150); };
+  searchInput.onfocus = () => { if (searchInput.value.trim()) searchInput.oninput(); };
+
+  await loadLinks();
 }
 
 function closePanel() {

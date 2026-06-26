@@ -147,3 +147,83 @@ def test_set_archived_and_starred():
     s = db.get_session("s1")
     assert s["archived"] == 1
     assert s["starred"] == 1
+
+
+# ── session links ─────────────────────────────────────────────────────────────
+
+def _make(sid, branch="main"):
+    db.upsert_heartbeat(session_id=sid, cwd=f"/tmp/{sid}", branch=branch, iterm_tab=None)
+
+
+def test_add_link_bidirectional():
+    _make("aaa")
+    _make("bbb")
+    assert db.add_link("aaa", "bbb") is True
+    assert [lnk["session_id"] for lnk in db.get_links("aaa")] == ["bbb"]
+    assert [lnk["session_id"] for lnk in db.get_links("bbb")] == ["aaa"]
+
+
+def test_add_link_canonical_dedup():
+    _make("aaa")
+    _make("bbb")
+    db.add_link("aaa", "bbb")
+    # Adding in reverse order should be a no-op
+    assert db.add_link("bbb", "aaa") is False
+    assert len(db.get_links("aaa")) == 1
+
+
+def test_add_link_self_returns_false():
+    _make("aaa")
+    assert db.add_link("aaa", "aaa") is False
+    assert db.get_links("aaa") == []
+
+
+def test_remove_link():
+    _make("aaa")
+    _make("bbb")
+    db.add_link("aaa", "bbb")
+    assert db.remove_link("aaa", "bbb") is True
+    assert db.get_links("aaa") == []
+    assert db.get_links("bbb") == []
+
+
+def test_remove_link_nonexistent():
+    _make("aaa")
+    _make("bbb")
+    assert db.remove_link("aaa", "bbb") is False
+
+
+def test_get_links_empty():
+    _make("aaa")
+    assert db.get_links("aaa") == []
+
+
+def test_get_links_metadata():
+    _make("aaa")
+    _make("bbb", branch="feat")
+    db.update_notes("bbb", "some notes")
+    db.add_link("aaa", "bbb")
+    links = db.get_links("aaa")
+    assert len(links) == 1
+    assert links[0]["session_id"] == "bbb"
+    assert links[0]["project_name"] == "bbb"
+    assert links[0]["git_branch"] == "feat"
+    assert "last_seen" in links[0]
+
+
+def test_cascade_delete_removes_links():
+    _make("aaa")
+    _make("bbb")
+    db.add_link("aaa", "bbb")
+    db.delete_session("aaa")
+    # Link should be gone from both sides
+    assert db.get_links("bbb") == []
+
+
+def test_list_sessions_includes_linked_ids():
+    _make("aaa")
+    _make("bbb")
+    db.add_link("aaa", "bbb")
+    rows = {r["session_id"]: r for r in db.list_sessions()}
+    assert "bbb" in rows["aaa"]["linked_session_ids"]
+    assert "aaa" in rows["bbb"]["linked_session_ids"]

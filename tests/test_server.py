@@ -317,3 +317,79 @@ def test_get_summaries_returns_entries(client):
 def test_get_summaries_unknown_session_returns_404(client):
     res = client.get("/api/sessions/nope/summaries")
     assert res.status_code == 404
+
+
+# ── Session links ─────────────────────────────────────────────────────────────
+# CHANGELOG: "Session links — bidirectional cross-session linking"
+
+def _hb(sid):
+    db.upsert_heartbeat(session_id=sid, cwd=f"/tmp/{sid}", branch="main", iterm_tab=None)
+
+
+def test_get_links_empty(client):
+    _hb("s1")
+    res = client.get("/api/sessions/s1/links")
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_get_links_unknown_session_returns_404(client):
+    res = client.get("/api/sessions/nope/links")
+    assert res.status_code == 404
+
+
+def test_post_link_adds_bidirectional(client):
+    _hb("s1")
+    _hb("s2")
+    res = client.post("/api/sessions/s1/links", json={"target_id": "s2"})
+    assert res.status_code == 200
+    assert res.json() == {"ok": True, "status": "added"}
+    assert client.get("/api/sessions/s1/links").json()[0]["session_id"] == "s2"
+    assert client.get("/api/sessions/s2/links").json()[0]["session_id"] == "s1"
+
+
+def test_post_link_duplicate_returns_already_linked(client):
+    _hb("s1")
+    _hb("s2")
+    client.post("/api/sessions/s1/links", json={"target_id": "s2"})
+    res = client.post("/api/sessions/s1/links", json={"target_id": "s2"})
+    assert res.status_code == 200
+    assert res.json()["status"] == "already_linked"
+
+
+def test_post_link_self_returns_400(client):
+    _hb("s1")
+    res = client.post("/api/sessions/s1/links", json={"target_id": "s1"})
+    assert res.status_code == 400
+
+
+def test_post_link_unknown_target_returns_404(client):
+    _hb("s1")
+    res = client.post("/api/sessions/s1/links", json={"target_id": "nope"})
+    assert res.status_code == 404
+
+
+def test_delete_link(client):
+    _hb("s1")
+    _hb("s2")
+    client.post("/api/sessions/s1/links", json={"target_id": "s2"})
+    res = client.delete("/api/sessions/s1/links/s2")
+    assert res.status_code == 200
+    assert res.json() == {"ok": True}
+    assert client.get("/api/sessions/s1/links").json() == []
+
+
+def test_delete_link_nonexistent_returns_404(client):
+    _hb("s1")
+    _hb("s2")
+    res = client.delete("/api/sessions/s1/links/s2")
+    assert res.status_code == 404
+
+
+def test_sessions_list_includes_linked_ids(client):
+    _hb("s1")
+    _hb("s2")
+    client.post("/api/sessions/s1/links", json={"target_id": "s2"})
+    result = {s["session_id"]: s for s in client.get("/api/sessions").json()}
+    assert "s2" in result["s1"]["linked_session_ids"]
+    assert "s1" in result["s2"]["linked_session_ids"]

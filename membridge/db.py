@@ -29,6 +29,14 @@ class SessionRow(TypedDict, total=False):
     starred: int
     awaiting_input: int
 
+
+class LinkedSession(TypedDict):
+    session_id: str
+    project_name: str
+    git_branch: str | None
+    description: str | None
+    last_seen: str
+
 DB_PATH = Path(os.getenv("MEMBRIDGE_DB", Path.home() / ".membridge" / "sessions.db"))
 
 _CREATE_SQL = """
@@ -45,6 +53,18 @@ CREATE TABLE IF NOT EXISTS sessions (
     description     TEXT,
     prompt_count    INTEGER NOT NULL DEFAULT 0,
     notes           TEXT
+);
+"""
+
+_LINKS_SQL = """
+CREATE TABLE IF NOT EXISTS session_links (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_a   TEXT NOT NULL,
+    session_b   TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    FOREIGN KEY (session_a) REFERENCES sessions(session_id) ON DELETE CASCADE,
+    FOREIGN KEY (session_b) REFERENCES sessions(session_id) ON DELETE CASCADE,
+    UNIQUE (session_a, session_b)
 );
 """
 
@@ -98,6 +118,7 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _conn() as conn:
         conn.execute(_CREATE_SQL)
+        conn.execute(_LINKS_SQL)
         conn.execute(_SUMMARIES_SQL)
         conn.execute(_SETTINGS_SQL)
         for sql in _MIGRATIONS:
@@ -319,6 +340,48 @@ def update_tickets(session_id: str, tickets: str) -> None:
         )
 
 
+def add_link(a: str, b: str) -> bool:
+    """Link two sessions. Stored canonically (a < b). Returns True if inserted, False if duplicate."""
+    if a == b:
+        return False
+    pair = (min(a, b), max(a, b))
+    with _conn() as conn:
+        try:
+            conn.execute(
+                "INSERT INTO session_links (session_a, session_b, created_at) VALUES (?, ?, ?)",
+                (*pair, _now()),
+            )
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+
+def remove_link(a: str, b: str) -> bool:
+    """Remove a link. Returns True if deleted, False if not found."""
+    pair = (min(a, b), max(a, b))
+    with _conn() as conn:
+        cursor = conn.execute(
+            "DELETE FROM session_links WHERE session_a = ? AND session_b = ?", pair
+        )
+        return cursor.rowcount > 0
+
+
+def get_links(session_id: str) -> list[LinkedSession]:
+    """Return all sessions linked to session_id with basic metadata."""
+    with _conn() as conn:
+        rows = conn.execute(
+            """SELECT s.session_id, s.project_name, s.git_branch, s.description, s.last_seen
+               FROM session_links l
+               JOIN sessions s ON (
+                   CASE WHEN l.session_a = ? THEN l.session_b ELSE l.session_a END = s.session_id
+               )
+               WHERE l.session_a = ? OR l.session_b = ?
+               ORDER BY s.last_seen DESC""",
+            (session_id, session_id, session_id),
+        ).fetchall()
+    return [LinkedSession(**dict(r)) for r in rows]
+
+
 def get_session(session_id: str) -> SessionRow | None:
     with _conn() as conn:
         row = conn.execute(
@@ -332,7 +395,21 @@ def list_sessions(include_stale: bool = True) -> list[SessionRow]:
         rows = conn.execute(
             "SELECT * FROM sessions ORDER BY last_seen DESC"
         ).fetchall()
-    return [SessionRow(**dict(r)) for r in rows]
+        link_rows = conn.execute(
+            "SELECT session_a, session_b FROM session_links"
+        ).fetchall()
+    # Build a map: session_id -> [linked_ids]
+    link_map: dict[str, list[str]] = {}
+    for lr in link_rows:
+        a, b = lr["session_a"], lr["session_b"]
+        link_map.setdefault(a, []).append(b)
+        link_map.setdefault(b, []).append(a)
+    result = []
+    for r in rows:
+        row = SessionRow(**dict(r))
+        row["linked_session_ids"] = link_map.get(r["session_id"], [])  # type: ignore[typeddict-unknown-key]
+        result.append(row)
+    return result
 
 
 def get_settings() -> dict:

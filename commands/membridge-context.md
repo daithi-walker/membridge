@@ -82,6 +82,21 @@ if is_other:
         for e in reversed(entries):
             print(f"\n--- [{e['source']}] {e['created_at'][:16]} ---")
             print(e['text'])
+
+# Linked sessions — always shown if any exist
+try:
+    links = json.loads(urllib.request.urlopen(f"{base}/api/sessions/{target}/links").read())
+    if links:
+        print("\n## Linked sessions")
+        for l in links:
+            short = l['session_id'][:8]
+            branch = f" · {l['git_branch']}" if l.get('git_branch') else ""
+            desc = l.get('description') or ""
+            desc_short = desc.strip("[] \n").split("\n")[0][:80] if desc else ""
+            suffix = f" — {desc_short}" if desc_short else ""
+            print(f"- [{l['project_name']}{branch}] {short}{suffix}")
+except Exception:
+    pass
 PYEOF
 ```
 

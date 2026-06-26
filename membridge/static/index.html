@@ -760,6 +760,85 @@
       padding: 0;
     }
 
+    /* ── Session link chips ── */
+    .link-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 7px 3px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    .link-chip:hover { border-color: var(--accent); }
+    .link-chip-project { font-weight: 600; color: var(--text); }
+    .link-chip-branch  { font-family: monospace; color: var(--text-muted); }
+    .link-chip-id      { font-family: monospace; font-size: 10px; color: var(--text-muted); }
+    button.link-chip-x {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1;
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      border-radius: 0;
+    }
+    button.link-chip-x:hover { color: var(--text); border: none; background: transparent; }
+    .links-input-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .links-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .link-search-wrap { position: relative; }
+    .link-search-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+    }
+    .link-search-input:focus { border-color: var(--accent); }
+    .link-search-input::placeholder { color: var(--text-muted); }
+    .link-search-dropdown {
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+      z-index: 60;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .link-search-item {
+      padding: 7px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .link-search-item:last-child { border-bottom: none; }
+    .link-search-item:hover { background: var(--surface2); }
+    .link-search-item-name { font-weight: 600; color: var(--text); }
+    .link-search-item-meta { font-size: 10px; color: var(--text-muted); font-family: monospace; margin-top: 1px; }
+    .link-indicator { font-size: 12px; margin-right: 2px; opacity: 0.7; }
+
     /* ── Mobile card view ── */
     #cards-view {
       display: none;
@@ -1051,6 +1130,17 @@
           <div class="panel-section-title">Tickets <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(Enter or comma to add)</span></div>
           <div class="tickets-input-wrap" id="panel-tickets-wrap">
             <input class="ticket-text-input" id="panel-ticket-input" placeholder="add ticket…">
+          </div>
+        </div>
+
+        <div>
+          <div class="panel-section-title">Linked sessions</div>
+          <div class="links-input-wrap">
+            <div class="links-chips-row" id="panel-links-chips"></div>
+            <div class="link-search-wrap">
+              <input class="link-search-input" id="panel-link-search" placeholder="+ link session by name, branch, or ID…" autocomplete="off">
+              <div class="link-search-dropdown" id="panel-link-dropdown" style="display:none"></div>
+            </div>
           </div>
         </div>
 

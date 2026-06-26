@@ -6,6 +6,8 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Session links — bidirectional cross-session linking via `session_links` join table; link chips in the panel with search-to-add, click-to-navigate, and × to remove; 🔗 indicator in table/card rows; `/membridge-context` appends linked sessions block; 18 new tests (108 total)
+- Bug fix: panel modal re-render suppressed while ticket input or notes textarea has focus (same SSE race as inline description edit); `sessions[]` synced on ticket/notes save
 - Description column wraps text — `white-space: normal` on `td.col-desc`; 120-char JS truncation removed; rows grow to fit long descriptions
 - Bug fix: column resize now works on all columns — `overflow:hidden` was clipping the `::after` drag handle on `th` elements; split into `th` (visible) and `td` (hidden) rules; resize handle widened from 4px to 8px; hotzone widened to 12px; drag baseline uses live `rect.width` so columns don't snap on first drag
 - Table width changed from `max-content/min-width:100%` to `width:100%` — prevents description/branch columns from bloating beyond viewport width
