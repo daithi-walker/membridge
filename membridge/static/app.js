@@ -8,6 +8,8 @@ let projectFilter = new Set(); // empty = all projects
 let activePanel = null;
 // Set to true while a table-row inline edit is active — suppresses render() so the DOM isn't clobbered mid-edit
 let editingInline = false;
+// Pin order: when non-null, rows stay in this ID order regardless of live status changes
+let pinnedOrder = null;
 
 // Use the page's own origin so focus/sync work from LAN (phone), not just localhost
 const BASE = window.location.origin;
@@ -20,6 +22,20 @@ const summaryCount = document.getElementById('summary-count');
 const indicator = document.getElementById('refresh-btn');
 indicator.addEventListener('click', syncAndRefresh);
 const themeToggle = document.getElementById('theme-toggle');
+const pinBtn = document.getElementById('pin-order-btn');
+pinBtn.addEventListener('click', () => {
+  if (pinnedOrder) {
+    pinnedOrder = null;
+    pinBtn.classList.remove('active');
+    pinBtn.title = 'Pin order';
+    render(sessions);
+  } else {
+    // Snapshot visible order at this moment
+    pinnedOrder = sessions.map(s => s.session_id);
+    pinBtn.classList.add('active');
+    pinBtn.title = 'Unpin order';
+  }
+});
 const panelOverlay = document.getElementById('panel-overlay');
 const panel = document.getElementById('side-panel');
 const panelClose = document.getElementById('panel-close');
@@ -321,8 +337,15 @@ function render(all) {
   } else if (projectFilter.size > 0) {
     visible = visible.filter(s => projectFilter.has(s.project_name));
   }
-  // Starred sessions float to the top
-  visible.sort((a, b) => (b.starred || 0) - (a.starred || 0));
+  if (pinnedOrder) {
+    // Maintain pinned order; new sessions (not in snapshot) go at the end
+    const idx = new Map(pinnedOrder.map((id, i) => [id, i]));
+    visible.sort((a, b) => {
+      const ai = idx.has(a.session_id) ? idx.get(a.session_id) : Infinity;
+      const bi = idx.has(b.session_id) ? idx.get(b.session_id) : Infinity;
+      return ai - bi;
+    });
+  }
 
   const active = all.filter(s => s.status === 'active').length;
   const idle = all.filter(s => s.status === 'idle').length;
@@ -664,6 +687,12 @@ function buildCard(s) {
 // ── Side panel ────────────────────────────────────────────────────────────────
 
 function openPanel(s, scrollIntoView) {
+  // Auto-pin order while panel is open so table rows don't shuffle under the user
+  if (!pinnedOrder) {
+    pinnedOrder = sessions.map(s => s.session_id);
+    pinBtn.classList.add('active');
+    pinBtn.title = 'Unpin order';
+  }
   activePanel = s.session_id;
 
   document.querySelectorAll('#sessions-body tr').forEach(r => r.classList.remove('row-active'));

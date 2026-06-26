@@ -6,6 +6,8 @@ Completed work, newest first.
 
 ## 2026-06
 
+- Pin order button (⊞) in header — freezes row order so sessions don't shuffle during active work; auto-pins when a session panel is opened (prevents table jitter while modal is up); unpin to re-sort
+- Sort fix: sessions now order by status band (active → idle → stale), then starred within band, then recency — starred stale sessions no longer float above active ones
 - Ticket base URL setting — configure a base URL (Jira, ADO, Linear, etc.) in Settings; ticket IDs in the panel become clickable links; multi-tracker friendly (one URL per workspace)
 - `/membridge-note <text>` slash command — inject freeform text verbatim into session history with `source: user`; no summarization, no file params, single line
 - `/membridge-rename` replaces `/membridge-tag` — same action (set session description), clearer name
