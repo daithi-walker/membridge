@@ -4,14 +4,35 @@ Migration notes and breaking changes for each significant update. See `CHANGELOG
 
 ---
 
-## 2026-06-25 — Session links
+## 2026-06-25 — Session links, /membridge-link, /membridge-rename
 
 **No migration required.** The `session_links` table is created automatically by `init_db()` on first server start after pulling. No manual SQL or `install.sh` re-run needed.
 
-Restart the server to pick up the new routes:
+### What changed
+
+- **Session links** — bidirectional linking between sessions via a new `session_links` join table. Link chips appear in the session panel; 🔗 indicator in the rightmost table column.
+- **`/membridge-link`** — new slash command to link the current session to another by ID prefix, or list existing links with no argument.
+- **`/membridge-rename`** — replaces `/membridge-tag`. Same action (set session description), clearer name. Update any saved workflows or habits that used `/membridge-tag`.
+
+### Steps on each machine
+
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.daihi.membridge
+git pull
+launchctl kickstart -k gui/$(id -u)/com.daihi.membridge  # picks up new API routes
 ```
+
+Install the new/renamed slash commands:
+```bash
+cp commands/membridge-link.md ~/.claude/commands/
+cp commands/membridge-rename.md ~/.claude/commands/
+rm -f ~/.claude/commands/membridge-tag.md
+```
+
+Clear stale localStorage column widths in the dashboard (new `col-links` column added):
+```
+localStorage.removeItem('membridge_col_widths')
+```
+(paste in DevTools console, then refresh)
 
 ---
 
