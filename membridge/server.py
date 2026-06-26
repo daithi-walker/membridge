@@ -306,6 +306,10 @@ def sessions() -> list[dict]:
                 status = "idle"
         d["status"] = status
         result.append(d)
+    # Sort: active → idle → stale; starred first within each band; most recent first within that
+    _status_rank = {"active": 0, "idle": 1, "stale": 2, "archived": 3}
+    result.sort(key=lambda d: str(d.get("last_seen") or ""), reverse=True)
+    result.sort(key=lambda d: (_status_rank.get(d["status"], 9), -d.get("starred", 0)))
     return result
 
 
