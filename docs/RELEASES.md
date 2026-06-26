@@ -4,6 +4,37 @@ Migration notes and breaking changes for each significant update. See `CHANGELOG
 
 ---
 
+## 2026-06-26 — /slides skill + presentations
+
+**No migration required.**
+
+### What changed
+
+- **`/slides` skill** — new reusable slash command that generates a self-contained, keyboard-navigable HTML slide deck from a topic or MemBridge session history (`--from-session`). Supports 6 brand themes across 3 brands (DSS, Biobase, Edge) in dark and light variants.
+- **`docs/presentations/`** — new folder containing the MemBridge demo deck, a brand theme comparison page, and `slides-theme-example.css` (starter stylesheet with variables reference).
+- **Theme CSS files are local-only** — `~/.claude/styles/slides-<brand>.css` files are not committed to the repo. Use `slides-theme-example.css` as a guide to create a brand theme on each machine.
+
+### Steps on each machine
+
+```bash
+git pull
+bash scripts/install.sh   # installs /slides into ~/.claude/commands/
+```
+
+Then create a theme file for your brand:
+```bash
+cp docs/presentations/slides-theme-example.css ~/.claude/styles/slides-mybrand.css
+# edit the variables to match your brand colours
+```
+
+Generate a deck:
+```
+/slides <topic> --style mybrand
+/slides --from-session          # build from current session history
+```
+
+---
+
 ## 2026-06-25 — Session links, /membridge-link, /membridge-rename
 
 **No migration required.** The `session_links` table is created automatically by `init_db()` on first server start after pulling. No manual SQL or `install.sh` re-run needed.
