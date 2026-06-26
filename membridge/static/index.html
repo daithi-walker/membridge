@@ -254,11 +254,12 @@
     /* column widths are set via <col> elements — JS controls them */
     /* overflow:hidden only on td — th needs visible overflow so the ::after resize handle isn't clipped */
     th.col-status, th.col-project, th.col-desc, th.col-branch,
-    th.col-last, th.col-id, th.col-prompts { white-space: nowrap; overflow: visible; }
+    th.col-last, th.col-id, th.col-prompts, th.col-links { white-space: nowrap; overflow: visible; }
     td.col-status, td.col-project, td.col-branch,
-    td.col-last, td.col-id, td.col-prompts { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    td.col-last, td.col-id, td.col-prompts, td.col-links { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     td.col-desc { overflow: hidden; white-space: normal; word-break: break-word; vertical-align: top; }
     .col-prompts { text-align: right; }
+    .col-links { text-align: center; }
 
     .btn-star {
       background: none; border: none; cursor: pointer;
@@ -837,7 +838,7 @@
     .link-search-item:hover { background: var(--surface2); }
     .link-search-item-name { font-weight: 600; color: var(--text); }
     .link-search-item-meta { font-size: 10px; color: var(--text-muted); font-family: monospace; margin-top: 1px; }
-    .link-indicator { font-size: 11px; margin-left: 4px; opacity: 0.7; }
+    .link-indicator { font-size: 13px; opacity: 0.75; cursor: default; }
 
     /* ── Mobile card view ── */
     #cards-view {
@@ -1048,6 +1049,7 @@
           <col data-col="col-last">
           <col data-col="col-id">
           <col data-col="col-prompts">
+          <col data-col="col-links">
         </colgroup>
         <thead>
           <tr>
@@ -1058,6 +1060,7 @@
             <th class="col-last">Last Active</th>
             <th class="col-id">ID</th>
             <th class="col-prompts">Prompts</th>
+            <th class="col-links"></th>
           </tr>
         </thead>
         <tbody id="sessions-body"></tbody>

@@ -543,14 +543,17 @@ function buildRow(s) {
 
   const countTd = td('col-prompts');
   countTd.innerHTML = `<span class="count-text">${s.prompt_count}</span>`;
+  tr.appendChild(countTd);
+
+  const linksTd = td('col-links');
   if (s.linked_session_ids && s.linked_session_ids.length) {
     const linkInd = document.createElement('span');
     linkInd.className = 'link-indicator';
     linkInd.textContent = '🔗';
     linkInd.title = `${s.linked_session_ids.length} linked session${s.linked_session_ids.length > 1 ? 's' : ''}`;
-    countTd.appendChild(linkInd);
+    linksTd.appendChild(linkInd);
   }
-  tr.appendChild(countTd);
+  tr.appendChild(linksTd);
 
   tr.addEventListener('click', () => openPanel(s, true));
   tr.style.cursor = 'pointer';
@@ -1164,6 +1167,7 @@ const COL_DEFAULTS = {
   'col-last':    100,
   'col-id':       88,
   'col-prompts':  64,
+  'col-links':    36,
 };
 
 let colWidths = {};
