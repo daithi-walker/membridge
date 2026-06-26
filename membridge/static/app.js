@@ -387,15 +387,6 @@ function buildRow(s) {
   });
   statusTd.appendChild(starBtn);
 
-  // Link indicator
-  if (s.linked_session_ids && s.linked_session_ids.length) {
-    const linkInd = document.createElement('span');
-    linkInd.className = 'link-indicator';
-    linkInd.textContent = '🔗';
-    linkInd.title = `${s.linked_session_ids.length} linked session${s.linked_session_ids.length > 1 ? 's' : ''}`;
-    statusTd.appendChild(linkInd);
-  }
-
   // Focus button — state machine:
   //   awaiting_input → yellow (wants your response: ? for decision, ✎ for text)
   //   active + working → green ◉ (Claude is processing)
@@ -552,6 +543,13 @@ function buildRow(s) {
 
   const countTd = td('col-prompts');
   countTd.innerHTML = `<span class="count-text">${s.prompt_count}</span>`;
+  if (s.linked_session_ids && s.linked_session_ids.length) {
+    const linkInd = document.createElement('span');
+    linkInd.className = 'link-indicator';
+    linkInd.textContent = '🔗';
+    linkInd.title = `${s.linked_session_ids.length} linked session${s.linked_session_ids.length > 1 ? 's' : ''}`;
+    countTd.appendChild(linkInd);
+  }
   tr.appendChild(countTd);
 
   tr.addEventListener('click', () => openPanel(s, true));
