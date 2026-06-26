@@ -6,6 +6,7 @@ Completed work, newest first.
 
 ## 2026-06
 
+- `/membridge-note <text>` slash command — inject freeform text verbatim into session history with `source: user`; no summarization, no file params, single line
 - `/membridge-rename` replaces `/membridge-tag` — same action (set session description), clearer name
 - `/membridge-link` slash command — link current session to another by ID prefix; no-arg lists existing links
 - 🔗 link indicator moved to dedicated rightmost `col-links` column (36px, centred)

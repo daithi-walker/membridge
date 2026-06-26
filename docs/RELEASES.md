@@ -25,6 +25,7 @@ Install the new/renamed slash commands:
 ```bash
 cp commands/membridge-link.md ~/.claude/commands/
 cp commands/membridge-rename.md ~/.claude/commands/
+cp commands/membridge-note.md ~/.claude/commands/
 rm -f ~/.claude/commands/membridge-tag.md
 ```
 
