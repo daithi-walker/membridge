@@ -1,6 +1,6 @@
 # MemBridge
 
-A local macOS app that tracks your Claude Code sessions — what each one is working on, how long it has been running, and how to get back to it.
+A local macOS app that tracks your Claude Code sessions - what each one is working on, how long it has been running, and how to get back to it.
 
 ## The problem
 
@@ -8,15 +8,15 @@ When you run Claude Code across many iTerm2 tabs over days or weeks, you lose tr
 
 ## What it does
 
-- **Auto-registers sessions** via Claude Code hooks — no manual setup per session
+- **Auto-registers sessions** via Claude Code hooks - no manual setup per session
 - **Auto-summarises** what each session worked on when you stop, using Claude Haiku
-- **Dashboard** — active / idle / stale status, git branch, prompt count, last active time
-- **Focus button** — raises the right iTerm2 tab, or opens a new tab with `claude --resume <id>`
-- **Push notifications** — macOS alert when Claude stops and needs your attention
-- **Session links** — bidirectionally link related sessions and navigate between them
-- **Slash commands** — summarise, rename, note, link, and load context from inside Claude
-- **Notes field** — per-session work log, auto-saved
-- **Backfill** — import existing session history from `~/.claude/projects/`
+- **Dashboard** - active / idle / stale status, git branch, prompt count, last active time
+- **Focus button** - raises the right iTerm2 tab, or opens a new tab with `claude --resume <id>`
+- **Push notifications** - macOS alert when Claude stops and needs your attention
+- **Session links** - bidirectionally link related sessions and navigate between them
+- **Slash commands** - summarise, rename, note, link, and load context from inside Claude
+- **Notes field** - per-session work log, auto-saved
+- **Backfill** - import existing session history from `~/.claude/projects/`
 - **Dark / light theme**, persisted in localStorage
 
 ## Architecture
@@ -32,13 +32,13 @@ localhost:7842  FastAPI + SQLite   runs natively via launchd (com.daihi.membridg
 ~/.membridge/sessions.db           SQLite DB, survives reinstalls
 ```
 
-All hooks run in the background (`curl ... &`) — Claude Code is never blocked.
+All hooks run in the background (`curl ... &`) - Claude Code is never blocked.
 
 ## Requirements
 
 - macOS (osascript / iTerm2 integration)
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/) — Python package manager
+- [uv](https://docs.astral.sh/uv/) - Python package manager
 - An Anthropic API key (for auto-summary via Claude Haiku)
 
 ## Setup
@@ -67,7 +67,7 @@ Sessions are colour-coded by status:
 | Status | Condition |
 |--------|-----------|
 | active | Last seen < 5 minutes ago |
-| idle   | Last seen 5 min – 2 hours, or PID still alive |
+| idle   | Last seen 5 min - 2 hours, or PID still alive |
 | stale  | Last seen > 2 hours and PID is dead |
 
 Click any row to open the side panel: full metadata, editable summary, notes, and linked sessions.
@@ -89,7 +89,7 @@ Set in `.env` or as environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | — | Required for auto-summary |
+| `ANTHROPIC_API_KEY` | - | Required for auto-summary |
 | `CLAUDE_SUMMARY_MODEL` | `claude-haiku-4-5-20251001` | Model used for summaries |
 | `MEMBRIDGE_DB` | `~/.membridge/sessions.db` | SQLite DB path |
 
@@ -114,15 +114,15 @@ Restart the server after Python changes:
 launchctl kickstart -k gui/$(id -u)/com.daihi.membridge
 ```
 
-Static file changes (`membridge/static/`) are live on browser refresh — no restart needed.
+Static file changes (`membridge/static/`) are live on browser refresh - no restart needed.
 
 ## Docs
 
-- [Architecture](docs/ARCHITECTURE.md) — system diagram, component responsibilities, data model
-- [Changelog](docs/CHANGELOG.md) — feature history
-- [Releases](docs/RELEASES.md) — migration notes for breaking changes
-- [Backlog](docs/BACKLOG.md) — planned features
+- [Architecture](docs/ARCHITECTURE.md) - system diagram, component responsibilities, data model
+- [Changelog](docs/CHANGELOG.md) - feature history
+- [Releases](docs/RELEASES.md) - migration notes for breaking changes
+- [Backlog](docs/BACKLOG.md) - planned features
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

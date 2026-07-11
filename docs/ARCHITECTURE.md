@@ -5,48 +5,43 @@
 ```
 Claude Code (any session, any project)
 │
-├── UserPromptSubmit hook ─────────────────────────────────────────────┐
-│   hooks/claude_ui_heartbeat.sh                                       │
-│   - Captures session_id, cwd, git branch, iTerm tab name, PID,      │
-│     ITERM_SESSION_ID UUID                                             │
-│   - Background POST → localhost:7842/api/heartbeat                   │
-│                                                                      │
-├── PreToolUse hook ────────────────────────────────────────────────────┤
-│   hooks/claude_ui_tool_use.sh                                         │
-│   - Background POST → localhost:7842/api/touch                        │
-│   - Fires before every tool call — keeps last_seen current during     │
-│     long Claude responses (prevents idle drift while working)         │
-│                                                                      ▼
-└── Stop hook ─────────────────────────── localhost:7842 (Docker)
-    hooks/claude_ui_stop.sh               FastAPI + SQLite
-    - Posts session_id, transcript_path │
-                                        ├── /api/heartbeat         → db.upsert_heartbeat()
-                                        ├── /api/touch             → db.touch_session()
-                                        ├── /api/stop              → db.record_stop()
-                                        │                             + async summarise()
-                                        ├── /api/sessions          → db.list_sessions()
-                                        │                             + PID liveness check
-                                        ├── /api/sessions/{id}     PATCH → summary/notes
-                                        ├── /api/sessions/{id}/summarise POST → re-summarise
-                                        ├── /api/sessions/{id}     DELETE → remove session
-                                        └── /api/settings          GET/PATCH
+├── UserPromptSubmit hook ──────────────────────────────────────────────┐
+│   hooks/claude_ui_heartbeat.sh                                        │
+│   - Captures session_id, cwd, git branch, iTerm tab name, PID,       │
+│     ITERM_SESSION_ID UUID                                              │
+│   - Background POST → localhost:7842/api/heartbeat                    │
+│                                                                       │
+├── PreToolUse hook ─────────────────────────────────────────────────────┤
+│   hooks/claude_ui_tool_use.sh                                          │
+│   - Background POST → localhost:7842/api/touch                         │
+│   - Fires before every tool call - keeps last_seen current during      │
+│     long Claude responses (prevents idle drift while working)          │
+│                                                                       │
+├── Stop hook ────────────────────────────────────────────────────────────┤
+│   hooks/claude_ui_stop.sh                                              │
+│   - Background POST → localhost:7842/api/stop                          │
+│   - Sends session_id + transcript_path; triggers auto-summary          │
+│                                                                       │
+└── Notification hook ──────────────── localhost:7842 (native, launchd) │
+    hooks/claude_ui_notification.sh    FastAPI + SQLite                  │
+    - Fires on permission_prompt       (com.daihi.membridge)             │
+    - POST → localhost:7842/api/notification                            ▼
+                                        ├── /api/heartbeat      → db.upsert_heartbeat()
+                                        ├── /api/touch          → db.touch_session()
+                                        ├── /api/stop           → db.record_stop()
+                                        │                          + async summarise()
+                                        ├── /api/notification   → macOS alert (osascript)
+                                        ├── /api/sessions       → db.list_sessions()
+                                        │                          + PID liveness check
+                                        ├── /api/sessions/{id}  PATCH → summary/notes/tags
+                                        ├── /api/sessions/{id}/summarise  POST
+                                        ├── /api/sessions/{id}/push-summary  POST
+                                        ├── /api/sessions/{id}/summaries  GET
+                                        ├── /api/focus          POST → iTerm2 focus/resume
+                                        └── /api/settings       GET/PATCH
 
 
-localhost:7843 (host Python — needs osascript + macOS window server)
-  scripts/focus_server.py
-  ├── POST /focus      → PID→TTY→osascript focus; fallback: new tab with claude --resume
-  ├── POST /rename     → osascript: rename iTerm2 session by name match
-  ├── GET  /pid/<pid>  → os.kill(pid, 0) liveness check
-  └── GET  /sessions   → list all iTerm2 session names (debug)
-
-
-scripts/sync_iterm_tabs.py   (run manually after renaming tabs)
-  Uses iTerm2 Python API (ITERM2_PYTHON) to read titleOverride (user-set aliases)
-  Falls back to osascript TTY matching if ITERM2_PYTHON not set
-  Updates iterm_tab + iterm_session_uuid in DB
-
-
-~/.membridge/sessions.db   SQLite, mounted as Docker volume
+~/.membridge/sessions.db   SQLite (survives reinstalls)
 ```
 
 ## Component responsibilities
@@ -54,23 +49,26 @@ scripts/sync_iterm_tabs.py   (run manually after renaming tabs)
 ### Heartbeat hook (`hooks/claude_ui_heartbeat.sh`)
 Fires on every `UserPromptSubmit`. Runs in background (`&`) so Claude is never blocked. Sends `session_id`, `cwd`, `git_branch`, `iterm_tab`, `pid`, `iterm_session_uuid` to the API. Max timeout 3 seconds; silently drops on failure.
 
+### PreToolUse hook (`hooks/claude_ui_tool_use.sh`)
+Fires before every tool call. Sends a lightweight touch to keep `last_seen` current during long-running responses - prevents active sessions from drifting to idle while Claude is working.
+
 ### Stop hook (`hooks/claude_ui_stop.sh`)
-Fires when a Claude session ends. Sends `session_id` and `transcript_path`. The server triggers async summary generation (Claude haiku) from the transcript.
+Fires when a Claude session ends. Sends `session_id` and `transcript_path`. The server triggers async summary generation (Claude Haiku) from the transcript. Deduplicates against the last stored summary - same text is silently skipped.
+
+### Notification hook (`hooks/claude_ui_notification.sh`)
+Fires on `permission_prompt` events. POSTs to `/api/notification`, which calls `osascript` to fire a macOS notification banner so you know a session needs attention.
 
 ### FastAPI server (`membridge/server.py`)
-Runs inside Docker. Handles all API routes. On first heartbeat for a session, calls the focus server's `/rename` endpoint via `host.docker.internal:7843` to rename the iTerm tab. Status computation calls `/pid/<pid>` to check liveness — stale sessions with an alive PID are floored to idle.
+Runs natively on the host via launchd (`com.daihi.membridge`), port 7842. Handles all API routes. Imports `focus.py` directly for all macOS operations - no separate process or HTTP hop.
+
+### Focus module (`membridge/focus.py`)
+All osascript and iTerm2 logic: focus a tab by UUID or TTY, rename a tab, check PID liveness, list sessions. Called directly from `server.py` as a Python import.
 
 ### SQLite (`membridge/db.py`)
-Two tables: `sessions` and `settings`. Migrations applied on startup via try/except (idempotent). Volume-mounted to `~/.membridge/sessions.db` on the host.
-
-### Focus server (`scripts/focus_server.py`)
-Pure stdlib Python, no deps. Must run on the Mac host (not Docker) because `osascript` only works on macOS. Registered as a launchd service (`com.daihi.membridge-focus`). CORS: allows `http://localhost:7842`. Also exposes `/pid/<pid>` for host-side process liveness checks (Docker can't see host PIDs directly).
-
-### Tab alias sync (`scripts/sync_iterm_tabs.py`)
-Run manually after renaming iTerm2 tabs. Uses the iTerm2 Python API (requires `ITERM2_PYTHON` env var + iTerm2 Python runtime installed) to read `tab.titleOverride` — the user-set alias. Matches sessions by UUID (from `$ITERM_SESSION_ID`) or PID→TTY fallback. Updates `iterm_tab` and `iterm_session_uuid` in the DB.
+Two tables: `sessions` and `session_summaries`. Migrations applied on startup via `_MIGRATIONS` list (idempotent). DB lives at `~/.membridge/sessions.db`.
 
 ### Dashboard (`membridge/static/`)
-Vanilla JS, no build step. **Static files are baked into the Docker image — rebuild required after any change.** Polls `/api/sessions` on a configurable interval (default 30s). Side panel shows full session metadata, editable summary, auto-saved notes. Project filter and show-stale checkbox state persist to `localStorage`.
+Vanilla JS, no build step. Editable install (`uv pip install -e .`) means static file changes are live on browser refresh. Receives live updates via SSE (`EventSource` → `/api/stream`). Side panel shows full session metadata, editable summary, notes, linked sessions, and summary history.
 
 ## Data model
 
@@ -80,36 +78,47 @@ sessions (
   cwd                 TEXT,              -- Working directory
   project_name        TEXT,              -- Last segment of cwd
   git_branch          TEXT,              -- Branch at last heartbeat
-  iterm_tab           TEXT,              -- iTerm tab alias (titleOverride) or auto name
+  iterm_tab           TEXT,              -- iTerm tab name or auto-detected
   iterm_session_uuid  TEXT,              -- UUID from $ITERM_SESSION_ID (stable per tab)
-  pid                 INTEGER,           -- Claude process PID (PPID in hook)
+  pid                 INTEGER,           -- Claude process PID
   first_seen          TEXT,              -- ISO8601 UTC
-  last_seen           TEXT,              -- ISO8601 UTC (updated on heartbeat)
+  last_seen           TEXT,              -- ISO8601 UTC (updated on heartbeat/touch)
   last_stop_reason    TEXT,              -- From Stop hook
-  summary             TEXT,              -- Auto (Claude haiku) or user-edited
-  summary_source      TEXT,              -- 'auto' | 'user' | 'backfill'
+  summary             TEXT,              -- Current summary (auto or user-edited)
+  summary_source      TEXT,              -- 'auto' | 'user' | 'skill' | 'backfill'
   prompt_count        INTEGER,           -- Incremented on each heartbeat
-  notes               TEXT               -- Manual work log (side panel)
+  notes               TEXT,             -- Freeform work log (side panel)
+  starred             INTEGER DEFAULT 0, -- Pinned to top of dashboard
+  archived            INTEGER DEFAULT 0  -- Hidden from default view
 )
+
+session_summaries (
+  id          INTEGER PRIMARY KEY,
+  session_id  TEXT,       -- FK → sessions.session_id
+  source      TEXT,       -- 'auto' | 'skill' | 'user'
+  text        TEXT,       -- Summary content
+  created_at  TEXT        -- ISO8601 UTC
+)
+-- Append-only log. Never overwrites. Full history per session.
 
 settings (
   key    TEXT PRIMARY KEY,
   value  TEXT
 )
--- Keys: active_threshold_secs (300), idle_threshold_secs (7200), refresh_interval_secs (30)
+-- Keys: active_threshold_secs (300), idle_threshold_secs (7200),
+--       refresh_interval_secs (30), ticket_base_url ('')
 ```
 
 ## Status computation
 
 | Status | Condition |
 |--------|-----------|
-| active | last_seen < `active_threshold_secs` ago |
-| idle   | last_seen between active and `idle_threshold_secs` |
-| stale  | last_seen > `idle_threshold_secs` ago **and** PID is dead |
-| idle   | last_seen > `idle_threshold_secs` ago **but** PID is still alive |
+| active | `last_seen` < `active_threshold_secs` ago |
+| idle   | `last_seen` between active and `idle_threshold_secs`, or PID still alive |
+| stale  | `last_seen` > `idle_threshold_secs` ago **and** PID is dead |
 
-Thresholds are user-configurable via the Settings modal (⚙). Status computed at query time in `server.py:_compute_status()`, with a host-side PID liveness check via `focus_server.py:GET /pid/<pid>`.
+Thresholds are user-configurable via the Settings modal. Status is computed at query time in `server.py` using a direct `os.kill(pid, 0)` liveness check via `focus.py`.
 
-## Why Docker for the main app but host Python for the focus server?
+## Why native, not Docker?
 
-`osascript` is a macOS-only binary that communicates with the macOS window server. It cannot run inside a Linux Docker container. Similarly, `os.kill(pid, 0)` inside Docker cannot see host PIDs. The main FastAPI app has no such constraint, and Docker keeps its Python dependencies isolated from the host.
+`osascript` and `os.kill` are macOS host operations - they cannot run inside a Linux container. MemBridge's core value (focus the right iTerm2 tab, rename it, fire a notification, check if a PID is alive) requires direct access to the macOS window server and process table. A containerised process has neither. Running natively under launchd also removes Docker as a dependency and gives a simpler one-process, one-plist, one-log-file setup.

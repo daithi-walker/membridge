@@ -15,10 +15,10 @@ Design:
 - `/api/stop` fires a macOS notification via osascript: `display notification "project is waiting" with title "MemBridge"`
 - Dashboard shows a reply textarea for sessions in `awaiting_input` state
 - Send button calls `focus.py` `write text "your message\n"` to the session's iTerm2 UUID
-- Guard: check session is still `awaiting_input` before writing — avoid injecting into an active response
+- Guard: check session is still `awaiting_input` before writing - avoid injecting into an active response
 - Inline focus button in table row turns amber when `awaiting_input`
 
-### 3. Clickable macOS notifications — focus iTerm tab on click
+### 3. Clickable macOS notifications - focus iTerm tab on click
 
 `osascript display notification` is fire-and-forget; clicking the banner does nothing. Replace with `terminal-notifier` (Homebrew) so:
 - Clicking the notification focuses the correct iTerm2 tab (calls `focus.py focus_session()`)
@@ -29,7 +29,7 @@ Implementation in `_notify_stop()` (`server.py`):
 - Fall back to plain `osascript display notification` if `terminal-notifier` is not installed (`shutil.which`)
 - `install.sh` can optionally `brew install terminal-notifier` with a prompt
 
-Alternative (no Homebrew dependency): small Swift helper using `UNUserNotificationCenter` with a registered click action — more work but no external dep.
+Alternative (no Homebrew dependency): small Swift helper using `UNUserNotificationCenter` with a registered click action - more work but no external dep.
 
 ### 3. Show model name per session
 
@@ -41,10 +41,10 @@ Small migration: one new column, one extra field in heartbeat extraction.
 
 90 tests exist (`test_db.py`, `test_server.py`, `test_focus.py`, `test_summariser.py`). Remaining gaps in `server.py`:
 
-- `_notify_stop()` — mock `subprocess.Popen`; test sound/no-sound and frontmost-session skip
-- `_generate_summary()` async task — mock `summarise()` + asyncio task creation
-- SSE `/api/events` stream — async generator test client
-- `/sync-tabs` — mock `threading.Thread` / `subprocess.run`
+- `_notify_stop()` - mock `subprocess.Popen`; test sound/no-sound and frontmost-session skip
+- `_generate_summary()` async task - mock `summarise()` + asyncio task creation
+- SSE `/api/events` stream - async generator test client
+- `/sync-tabs` - mock `threading.Thread` / `subprocess.run`
 
 ### 3. Context usage % in session modal
 
@@ -66,12 +66,25 @@ Heartbeats are silently dropped if the server is down when a hook fires.
 - Hooks write to `~/.membridge/queue/<timestamp>.json` on `curl` failure
 - Server drains the queue directory on startup
 
+### 6. Ticket relationship links (replace flat `tickets` string)
+
+Sessions can already be tagged with multiple tickets (`tickets` column, comma-separated IDs), but there's no way to say which one a session's activity actually belongs to when more than one is linked.
+
+Design (from 2026-07-11 discussion):
+- Reuse the existing `tickets` column but store JSON instead of a comma string: `[{"id": "ADO-123", "rel": "working_on"}, {"id": "ADO-456", "rel": "relates_to"}]`
+- Relationship vocab kept small and MemBridge-native - `working_on` / `relates_to` to start - rather than mirroring Jira's and ADO's own (incompatible) link-type ontologies
+- Exactly one `working_on` ticket allowed per session; enforced client- and server-side. This is what any future ticket-write-back command (e.g. posting a summary as a comment) reads to know where to post
+- One-time data migration: existing comma-separated values become JSON with `rel: "relates_to"` for every entry (can't safely infer which was primary) - dashboard should surface sessions with tickets but no `working_on` pick
+- UI: star/pin toggle per ticket tag; setting one clears the flag on any other tag for that session
+
+Prerequisite for any Jira/ADO write-back automation (see `docs/ideas/` if that gets scoped out).
+
 ---
 
 ## Medium-term
 
 ### Drop Docker volume mount for static files
-Blocked by item 1 (Drop Docker) — becomes a non-issue once the server runs natively. If Docker is kept, mount `./membridge/static:/app/membridge/static` to avoid rebuilding on every frontend change.
+Blocked by item 1 (Drop Docker) - becomes a non-issue once the server runs natively. If Docker is kept, mount `./membridge/static:/app/membridge/static` to avoid rebuilding on every frontend change.
 
 ### GCS transcript archival
 Sweep `~/.claude/projects/` and upload transcripts to GCS before Claude Code's auto-compaction discards them. Gives session state recovery and audit trail without relying on local disk.
@@ -108,17 +121,17 @@ POST /api/sessions/{id}/message  {"text": "yes, proceed"}
   → SSE pushes to dashboard
 ```
 
-No osascript, no Accessibility permission, no container latency. Hooks (`Stop`, `PreToolUse`) fire normally because it's the real Claude Code binary on the host. The repo and transcript are already on disk — nothing to mount.
+No osascript, no Accessibility permission, no container latency. Hooks (`Stop`, `PreToolUse`) fire normally because it's the real Claude Code binary on the host. The repo and transcript are already on disk - nothing to mount.
 
 **Trade-offs:**
-- Response arrives only on completion (no streaming mid-turn) — acceptable for decision prompts
-- `--dangerously-skip-permissions` needed to avoid interactive approval prompts in headless mode — caller must opt in explicitly
+- Response arrives only on completion (no streaming mid-turn) - acceptable for decision prompts
+- `--dangerously-skip-permissions` needed to avoid interactive approval prompts in headless mode - caller must opt in explicitly
 - iTerm session is bypassed; the headless turn doesn't appear in the iTerm history, only in MemBridge
 
 **Path to Telegram integration:**
-Once this works, wiring Telegram is straightforward — inbound Telegram message → `POST /api/sessions/{id}/message` → response back via `sendMessage`. See `docs/ideas/telegram-mobile-reply.md` for the full Telegram architecture.
+Once this works, wiring Telegram is straightforward - inbound Telegram message → `POST /api/sessions/{id}/message` → response back via `sendMessage`. See `docs/ideas/telegram-mobile-reply.md` for the full Telegram architecture.
 
-**Effort:** Medium — `claude --print` subprocess wrapper, response capture, new DB turn type, SSE push.
+**Effort:** Medium - `claude --print` subprocess wrapper, response capture, new DB turn type, SSE push.
 
 ---
 

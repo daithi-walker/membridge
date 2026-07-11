@@ -1,4 +1,4 @@
-# ADR 012: Drop Docker — Run Entirely as a Native Host Process
+# ADR 012: Drop Docker - Run Entirely as a Native Host Process
 
 **Date:** 2026-06-23  
 **Status:** Accepted  
@@ -14,7 +14,7 @@ The limitations of the split proved untenable in practice:
 - Silent degradation when the focus server was unreachable from the container
 - Volume-mounting ADC credentials into Docker (see ADR 007) added operational friction
 - `docker compose up/down` was a heavyweight lifecycle for a single-machine tool
-- No real benefit from container isolation — the tool's value is deep macOS integration, not portability
+- No real benefit from container isolation - the tool's value is deep macOS integration, not portability
 
 ## Decision
 
@@ -29,13 +29,13 @@ Run MemBridge entirely as a native macOS process via a single launchd plist (`co
 
 **Positive:**
 - One process, one plist, one log file
-- No Docker dependency — install is `uv pip install -e .` + launchd plist
+- No Docker dependency - install is `uv pip install -e .` + launchd plist
 - osascript calls are direct subprocess calls; no HTTP hop between processes
 - ADC credentials come from the user's host environment automatically
 
 **Negative:**
 - No container isolation (not a real concern for a single-developer local tool)
-- Harder to run on Linux (osascript is macOS-only — but this was always true)
+- Harder to run on Linux (osascript is macOS-only - but this was always true)
 
 ## Migration
 
