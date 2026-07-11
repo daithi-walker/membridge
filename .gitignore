@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.venv2/
+*.db
+*.egg-info/
+dist/
+build/
+.env
+docs/presentations/
+commands/slides.md

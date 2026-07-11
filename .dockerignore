@@ -1,0 +1,10 @@
+.venv
+.venv2
+__pycache__
+*.pyc
+*.pyo
+.git
+context/
+hooks/
+scripts/
+*.db
