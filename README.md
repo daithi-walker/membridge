@@ -1,111 +1,128 @@
 # MemBridge
 
-A local webapp that tracks your Claude Code sessions so you always know what each one was working on, when it was last active, and how to get back to it.
+A local macOS app that tracks your Claude Code sessions — what each one is working on, how long it has been running, and how to get back to it.
 
 ## The problem
 
-When you have many Claude Code sessions running across iTerm tabs, you lose track of which session corresponds to which piece of work. `claude --resume <session-id>` is powerful, but only if you know which ID to use.
+When you run Claude Code across many iTerm2 tabs over days or weeks, you lose track of which session is doing what. `claude --resume <id>` is powerful, but only if you know which ID to use.
 
 ## What it does
 
 - **Auto-registers sessions** via Claude Code hooks — no manual setup per session
-- **Auto-summarises** each session when you stop, using Claude haiku via Vertex AI
-- **Dashboard** showing active / idle / stale status, git branch, last active time, prompt count
-- **Project filter** — filter sessions by project name
-- **Side panel** — click any row to open a detail drawer with full metadata, editable summary, and notes
-- **Focus button** — clicks through to the right iTerm2 tab (or opens a new one with the resume command)
-- **Tab rename** — renames your iTerm2 tab to the project name automatically
+- **Auto-summarises** what each session worked on when you stop, using Claude Haiku
+- **Dashboard** — active / idle / stale status, git branch, prompt count, last active time
+- **Focus button** — raises the right iTerm2 tab, or opens a new tab with `claude --resume <id>`
+- **Push notifications** — macOS alert when Claude stops and needs your attention
+- **Session links** — bidirectionally link related sessions and navigate between them
+- **Slash commands** — summarise, rename, note, link, and load context from inside Claude
 - **Notes field** — per-session work log, auto-saved
-- **Copy resume command** — one click copies `claude --resume <session-id>` to clipboard
-- **Backfill** — import your existing session history from `~/.claude/projects/`
-- **Dark / light theme** toggle, preference persisted in localStorage
+- **Backfill** — import existing session history from `~/.claude/projects/`
+- **Dark / light theme**, persisted in localStorage
 
 ## Architecture
 
 ```
-Claude Code (any session)
-  UserPromptSubmit hook  →  POST localhost:7842/api/heartbeat  (registers prompt, increments count)
-  PreToolUse hook        →  POST localhost:7842/api/touch       (keeps session active during long responses)
-  Stop hook              →  POST localhost:7842/api/stop        (triggers auto-summary)
+Claude Code (any session, any project)
+  UserPromptSubmit hook  →  POST localhost:7842/api/heartbeat   registers session, increments prompt count
+  PreToolUse hook        →  POST localhost:7842/api/touch        keeps last_seen fresh during long responses
+  Stop hook              →  POST localhost:7842/api/stop         triggers auto-summary
+  Notification hook      →  POST localhost:7842/api/notification fires macOS alert when Claude needs input
 
-localhost:7842  FastAPI + SQLite   (Docker / OrbStack)
-localhost:7843  Focus server       (host Python — needs osascript)
-
-~/.membridge/sessions.db           SQLite DB (persists across rebuilds)
+localhost:7842  FastAPI + SQLite   runs natively via launchd (com.daihi.membridge)
+~/.membridge/sessions.db           SQLite DB, survives reinstalls
 ```
+
+All hooks run in the background (`curl ... &`) — Claude Code is never blocked.
 
 ## Requirements
 
 - macOS (osascript / iTerm2 integration)
-- Docker / OrbStack
-- Python 3.11+ (for the focus server and install script)
-- An Anthropic API key **or** Vertex AI (for auto-summary via Claude haiku)
-
-> **Note:** Claude Code itself can run on a Claude.ai subscription (OAuth, no API key needed). The auto-summariser runs inside Docker and calls the API directly — it requires either `ANTHROPIC_API_KEY` (default) or Vertex AI credentials (`CLAUDE_CODE_USE_VERTEX=1`). The Claude.ai subscription OAuth cannot be used here.
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) — Python package manager
+- An Anthropic API key (for auto-summary via Claude Haiku)
 
 ## Setup
 
-### 1. Configure environment
-
-Create a `.env` file (see `.env.example`):
-
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-### 2. Run the installer
-
-```bash
+git clone https://github.com/daithi-walker/membridge.git
+cd membridge
+cp .env.example .env          # add your ANTHROPIC_API_KEY
 bash scripts/install.sh
 ```
 
-This will:
-- Build the Docker image
-- Create `~/.membridge/` for the SQLite DB
-- Register `UserPromptSubmit`, `PreToolUse`, and `Stop` hooks in `~/.claude/settings.json`
-- Install a launchd service for the focus server (`com.daihi.membridge-focus`, port 7843)
-- Install the `/membridge-summarize` slash command to `~/.claude/commands/membridge-summarize.md`
+The installer:
+- Creates a Python venv via `uv` and installs the package
+- Writes a launchd plist (`com.daihi.membridge`) and starts the server on port 7842
+- Registers the four Claude Code hooks in `~/.claude/settings.json`
+- Installs slash commands to `~/.claude/commands/`
 
-### 3. Start the app
-
-```bash
-cd ~/git/membridge
-docker compose up -d
-```
-
-### 4. Restart Claude Code
-
-Hooks only take effect after a restart. New sessions will appear in the dashboard automatically.
-
-### 5. Backfill historical sessions (optional)
-
-```bash
-cd ~/git/membridge
-python3 scripts/backfill.py --dry-run --days 30   # preview
-python3 scripts/backfill.py --days 30              # import
-```
+Then restart Claude Code so the hooks take effect.
 
 ## Dashboard
 
-Open **http://localhost:7842** in your browser.
+Open **[http://localhost:7842](http://localhost:7842)** in your browser.
 
-| Column | Description |
-|--------|-------------|
-| Status | `active` (<5 min), `idle` (<2 h), `stale` (>2 h) |
-| Project | Directory name + truncated session ID |
-| Branch | Git branch at time of last heartbeat |
-| Last Active | Relative time since last prompt |
-| Prompts | Total prompt count |
-| Summary | Auto-generated or user-edited (click row to edit in panel) |
+Sessions are colour-coded by status:
 
-Click any row to open the **side panel** with full details: session ID, cwd, PID, iTerm tab, first seen, and an editable notes field (auto-saved).
+| Status | Condition |
+|--------|-----------|
+| active | Last seen < 5 minutes ago |
+| idle   | Last seen 5 min – 2 hours, or PID still alive |
+| stale  | Last seen > 2 hours and PID is dead |
 
-## Data
+Click any row to open the side panel: full metadata, editable summary, notes, and linked sessions.
 
-- **SQLite DB**: `~/.membridge/sessions.db`
-- **Focus server log**: `/tmp/membridge-focus.log`
+## Slash commands
+
+| Command | What it does |
+|---------|--------------|
+| `/membridge-summarize` | Generate and push a summary mid-session |
+| `/membridge-rename` | Set a short description for the current session |
+| `/membridge-note <text>` | Inject a freeform note into session history |
+| `/membridge-link` | Link the current session to another by ID prefix |
+| `/membridge-context` | Load summaries, notes, and links back into Claude |
+| `/membridge-archive` | Toggle archive to hide a session from the dashboard |
+
+## Configuration
+
+Set in `.env` or as environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | — | Required for auto-summary |
+| `CLAUDE_SUMMARY_MODEL` | `claude-haiku-4-5-20251001` | Model used for summaries |
+| `MEMBRIDGE_DB` | `~/.membridge/sessions.db` | SQLite DB path |
+
+Thresholds (active/idle/stale) and the dashboard refresh interval are configurable via the Settings modal in the UI.
+
+## Backfill historical sessions
+
+```bash
+uv run python scripts/backfill.py --dry-run --days 30   # preview
+uv run python scripts/backfill.py --days 30              # import
+```
+
+## Development
+
+```bash
+uv run pytest          # run tests
+uv run ruff check .    # lint
+```
+
+Restart the server after Python changes:
+```bash
+launchctl kickstart -k gui/$(id -u)/com.daihi.membridge
+```
+
+Static file changes (`membridge/static/`) are live on browser refresh — no restart needed.
 
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md) — system diagram, component responsibilities, data model
-- [Backlog](docs/BACKLOG.md) — planned and future work
+- [Changelog](docs/CHANGELOG.md) — feature history
+- [Releases](docs/RELEASES.md) — migration notes for breaking changes
+- [Backlog](docs/BACKLOG.md) — planned features
+
+## License
+
+MIT — see [LICENSE](LICENSE).
