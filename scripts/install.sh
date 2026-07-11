@@ -55,7 +55,7 @@ echo "    Data dir: $HOME/.membridge"
 echo ""
 echo "==> Installing Claude Code commands..."
 mkdir -p "$HOME/.claude/commands"
-for cmd in membridge-summarize membridge-archive membridge-context membridge-tag slides; do
+for cmd in membridge-summarize membridge-archive membridge-context membridge-tag; do
   if [ -f "$PROJECT_DIR/commands/$cmd.md" ]; then
     cp "$PROJECT_DIR/commands/$cmd.md" "$HOME/.claude/commands/$cmd.md"
     echo "    /$cmd → ~/.claude/commands/$cmd.md"
