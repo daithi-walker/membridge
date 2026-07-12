@@ -4,6 +4,8 @@ let refreshTimer = null;
 let sessions = [];
 // showFilter: which session types are visible. Default: active + idle (not stale, not archived)
 let showFilter = new Set(['active', 'idle']);
+// Ephemeral thinking state: session_id → tool_name. Updated via SSE tool_start/tool_end events.
+const thinkingSessions = new Map();
 let projectFilter = new Set(); // empty = all projects
 let activePanel = null;
 // Set to true while a table-row inline edit is active — suppresses render() so the DOM isn't clobbered mid-edit
@@ -388,6 +390,7 @@ function render(all) {
 
 function buildRow(s) {
   const tr = document.createElement('tr');
+  tr.dataset.session = s.session_id;
   if (activePanel === s.session_id) tr.classList.add('row-active');
   if (s.archived) tr.classList.add('row-archived');
 
@@ -441,7 +444,9 @@ function buildRow(s) {
   } else if (s.status === 'active') {
     _focusCls += ' btn-focus-row-working';
     _focusIcon = '◉';
-    _focusTitle = 'Claude is working…';
+    const _thinkingTool = thinkingSessions.get(s.session_id);
+    _focusTitle = _thinkingTool ? `Using ${_thinkingTool}…` : 'Claude is working…';
+    if (_thinkingTool !== undefined) _focusCls += ' thinking';
   }
   focusRowBtn.className = _focusCls;
   focusRowBtn.title = _focusTitle;
@@ -1289,10 +1294,29 @@ function jumpToAwaiting() {
 document.getElementById('awaiting-badge').addEventListener('click', jumpToAwaiting);
 document.getElementById('awaiting-count').addEventListener('click', jumpToAwaiting);
 
+function applyThinkingToRow(sessionId, isThinking, toolName) {
+  const row = document.querySelector(`tr[data-session="${sessionId}"]`);
+  if (!row) return;
+  const btn = row.querySelector('.btn-focus-row-working');
+  if (!btn) return;
+  btn.classList.toggle('thinking', isThinking);
+  btn.title = isThinking && toolName ? `Using ${toolName}…` : 'Claude is working…';
+}
+
 function connectSSE() {
   const es = new EventSource('/api/events');
   es.onmessage = (e) => {
-    if (e.data === 'refresh') fetchSessions();
+    if (e.data === 'refresh') { fetchSessions(); return; }
+    try {
+      const ev = JSON.parse(e.data);
+      if (ev.type === 'tool_start') {
+        thinkingSessions.set(ev.session_id, ev.tool_name || '');
+        applyThinkingToRow(ev.session_id, true, ev.tool_name);
+      } else if (ev.type === 'tool_end') {
+        thinkingSessions.delete(ev.session_id);
+        applyThinkingToRow(ev.session_id, false, '');
+      }
+    } catch (_) {}
   };
   es.onerror = () => {
     es.close();

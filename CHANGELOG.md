@@ -4,6 +4,11 @@ Completed work, newest first.
 
 ---
 
+## v0.2.0 - 2026-07-12
+
+- Thinking pulse — `PreToolUse` hook broadcasts `tool_start` SSE event with tool name; new `PostToolBatch` hook broadcasts `tool_end`; active session's ◉ button pulses fast (0.55s) with green fill while a tool is executing; `tool_name` shown on hover; clears on batch complete or Stop
+- 5 new tests for thinking pulse (112 total)
+
 ## v0.1.0 - 2026-07-11
 
 Initial public release.

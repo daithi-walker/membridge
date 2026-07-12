@@ -285,6 +285,14 @@
       animation: pulse-awaiting 1.2s ease-in-out infinite;
     }
     .btn-focus-row-working:hover { background: rgba(76,175,80,0.12); }
+    .btn-focus-row-working.thinking {
+      animation: pulse-thinking 0.55s ease-in-out infinite;
+      background: rgba(76,175,80,0.12);
+    }
+    @keyframes pulse-thinking {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
     .btn-focus-row-awaiting {
       border-color: #f0c040; color: #f0c040;
       animation: pulse-awaiting 2s ease-in-out infinite;

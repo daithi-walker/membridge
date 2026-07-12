@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -79,6 +80,8 @@ class HeartbeatPayload(BaseModel):
 
 class TouchPayload(BaseModel):
     session_id: str
+    thinking: bool = False
+    tool_name: str = ""
 
 
 class StopPayload(BaseModel):
@@ -174,7 +177,11 @@ def _rename_iterm_tab(old_name: str, new_name: str) -> None:
 @app.post("/api/touch")
 def touch(payload: TouchPayload) -> dict:
     db.touch_session(payload.session_id)
-    _broadcast("refresh")
+    if payload.thinking:
+        _broadcast(json.dumps({"type": "tool_start", "session_id": payload.session_id, "tool_name": payload.tool_name}))
+    else:
+        _broadcast(json.dumps({"type": "tool_end", "session_id": payload.session_id}))
+        _broadcast("refresh")
     return {"ok": True}
 
 
@@ -184,6 +191,7 @@ async def stop(payload: StopPayload) -> dict:
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
     _notify_stop(payload.session_id, was_awaiting)
+    _broadcast(json.dumps({"type": "tool_end", "session_id": payload.session_id}))
     _broadcast("refresh")
     return {"ok": True}
 
