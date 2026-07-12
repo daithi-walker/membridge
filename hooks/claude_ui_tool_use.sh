@@ -18,7 +18,7 @@ if [ "$TOOL_NAME" = "AskUserQuestion" ]; then
     --max-time 2 \
     >/dev/null 2>&1 || echo "[$(date -u +%FT%TZ)] notification failed for $SESSION_ID" >> /tmp/membridge-hook.log &
 else
-  BODY="{\"session_id\":\"$SESSION_ID\"}"
+  BODY=$(python3 -c "import json,sys; print(json.dumps({'session_id':sys.argv[1],'thinking':True,'tool_name':sys.argv[2]}))" "$SESSION_ID" "$TOOL_NAME")
   curl -s -X POST http://localhost:7842/api/touch \
     -H "Content-Type: application/json" \
     -d "$BODY" \

@@ -89,6 +89,44 @@ def test_touch_clears_awaiting_input(client):
     assert db.get_session("s1")["awaiting_input"] == 0
 
 
+# ── Thinking pulse (PreToolUse → tool_start SSE, PostToolBatch → tool_end SSE) ──
+# CHANGELOG: "Thinking pulse — PreToolUse broadcasts tool_start SSE; PostToolBatch broadcasts tool_end"
+
+def test_touch_thinking_true_returns_ok(client):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    res = client.post("/api/touch", json={"session_id": "s1", "thinking": True, "tool_name": "Bash"})
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+
+
+def test_touch_thinking_false_returns_ok(client):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    res = client.post("/api/touch", json={"session_id": "s1", "thinking": False})
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+
+
+def test_touch_thinking_defaults_to_false(client):
+    """Existing hooks without thinking field still work."""
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    res = client.post("/api/touch", json={"session_id": "s1"})
+    assert res.status_code == 200
+
+
+def test_stop_broadcasts_tool_end(client, monkeypatch):
+    """Stop endpoint broadcasts tool_end to clear any in-flight thinking indicator."""
+    broadcasts = []
+    monkeypatch.setattr("membridge.server._broadcast", lambda e: broadcasts.append(e))
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    client.post("/api/stop", json={"session_id": "s1", "stop_reason": "end_turn"})
+    import json as _json
+    tool_end_events = [e for e in broadcasts if isinstance(e, str) and '"tool_end"' in e]
+    assert len(tool_end_events) == 1
+    parsed = _json.loads(tool_end_events[0])
+    assert parsed["type"] == "tool_end"
+    assert parsed["session_id"] == "s1"
+
+
 # ── Session PATCH — inline editing ───────────────────────────────────────────
 # CHANGELOG: "Inline description editing in table row"
 # CHANGELOG: "Archive session feature"

@@ -70,14 +70,15 @@ echo "==> Registering hooks in $SETTINGS_FILE..."
 
 HEARTBEAT_HOOK="$HOOKS_DIR/claude_ui_heartbeat.sh"
 TOOL_USE_HOOK="$HOOKS_DIR/claude_ui_tool_use.sh"
+TOOL_BATCH_HOOK="$HOOKS_DIR/claude_ui_tool_batch.sh"
 STOP_HOOK="$HOOKS_DIR/claude_ui_stop.sh"
 NOTIFICATION_HOOK="$HOOKS_DIR/claude_ui_notification.sh"
 
 [ -f "$SETTINGS_FILE" ] || echo '{}' > "$SETTINGS_FILE"
 
-python3 - "$SETTINGS_FILE" "$HEARTBEAT_HOOK" "$TOOL_USE_HOOK" "$STOP_HOOK" "$NOTIFICATION_HOOK" << 'PYEOF'
+python3 - "$SETTINGS_FILE" "$HEARTBEAT_HOOK" "$TOOL_USE_HOOK" "$TOOL_BATCH_HOOK" "$STOP_HOOK" "$NOTIFICATION_HOOK" << 'PYEOF'
 import json, sys
-settings_path, heartbeat_hook, tool_use_hook, stop_hook, notification_hook = sys.argv[1:]
+settings_path, heartbeat_hook, tool_use_hook, tool_batch_hook, stop_hook, notification_hook = sys.argv[1:]
 with open(settings_path) as f:
     settings = json.load(f)
 hooks = settings.setdefault("hooks", {})
@@ -97,6 +98,7 @@ def register(event, command, matcher=None):
         print(f"  {event} hook already registered")
 register("UserPromptSubmit", heartbeat_hook)
 register("PreToolUse", tool_use_hook)
+register("PostToolBatch", tool_batch_hook)
 register("Stop", stop_hook)
 register("Notification", notification_hook, matcher="permission_prompt")
 with open(settings_path, "w") as f:

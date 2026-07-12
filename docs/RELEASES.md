@@ -4,6 +4,28 @@ Migration notes and breaking changes for each significant update. See `CHANGELOG
 
 ---
 
+## 2026-07-12 - Thinking pulse (v0.2.0)
+
+**Re-run `install.sh` to register the new `PostToolBatch` hook, then restart Claude Code.**
+
+### What changed
+
+- `PreToolUse` hook now sends `thinking: true` + `tool_name` to `/api/touch`; server broadcasts a `tool_start` SSE event to connected dashboards
+- New `hooks/claude_ui_tool_batch.sh` (`PostToolBatch` event) broadcasts `tool_end` SSE + refresh when a tool batch completes
+- `Stop` hook also broadcasts `tool_end` to clear any stale thinking state
+- Dashboard: active session's green ◉ button pulses at 0.55s (vs 1.2s idle) with green fill while a tool is executing; hover shows `Using Bash…` / `Using Edit…` etc.; no DB change — purely ephemeral client-side state
+
+### Steps on each machine
+
+```bash
+git pull
+bash scripts/install.sh   # registers PostToolBatch hook in ~/.claude/settings.json
+```
+
+Restart Claude Code to activate the new `PostToolBatch` hook. Browser refresh is enough to pick up the CSS/JS changes (static files are live).
+
+---
+
 ## 2026-06-26 - /slides skill + presentations
 
 **No migration required.**
