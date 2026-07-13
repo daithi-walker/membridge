@@ -5,7 +5,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 
 logger = logging.getLogger(__name__)
 
@@ -380,7 +380,7 @@ def get_links(session_id: str) -> list[LinkedSession]:
                ORDER BY s.last_seen DESC""",
             (session_id, session_id, session_id),
         ).fetchall()
-    return [LinkedSession(**dict(r)) for r in rows]
+    return [cast(LinkedSession, dict(r)) for r in rows]
 
 
 def get_session(session_id: str) -> SessionRow | None:
