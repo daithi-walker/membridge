@@ -307,11 +307,18 @@ def sessions() -> list[dict]:
             settings["active_threshold_secs"],
             settings["idle_threshold_secs"],
         )
-        # If timestamp says stale but PID is still alive, floor to idle
+        # Adjust status and awaiting_input based on whether the process is alive
         pid = d.get("pid")
-        if status == "stale" and isinstance(pid, int):
-            if _pid_alive(pid):
+        pid_dead = isinstance(pid, int) and not _pid_alive(pid)
+        if isinstance(pid, int) and not pid_dead:
+            # Process alive: upgrade stale → idle
+            if status == "stale":
                 status = "idle"
+        if pid_dead:
+            # Process dead: downgrade active → idle; clear awaiting_input
+            if status == "active":
+                status = "idle"
+            d["awaiting_input"] = 0
         d["status"] = status
         result.append(d)
     # Sort: active → idle → stale; starred first within each band; most recent first within that
