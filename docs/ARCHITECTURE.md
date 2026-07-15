@@ -24,7 +24,7 @@ Claude Code (any session, any project)
 │                                                                       │
 └── Notification hook ──────────────── localhost:7842 (native, launchd) │
     hooks/claude_ui_notification.sh    FastAPI + SQLite                  │
-    - Fires on permission_prompt       (com.daihi.membridge)             │
+    - Fires on permission_prompt       (com.membridge)             │
     - POST → localhost:7842/api/notification                            ▼
                                         ├── /api/heartbeat      → db.upsert_heartbeat()
                                         ├── /api/touch          → db.touch_session()
@@ -59,7 +59,7 @@ Fires when a Claude session ends. Sends `session_id` and `transcript_path`. The 
 Fires on `permission_prompt` events. POSTs to `/api/notification`, which calls `osascript` to fire a macOS notification banner so you know a session needs attention.
 
 ### FastAPI server (`membridge/server.py`)
-Runs natively on the host via launchd (`com.daihi.membridge`), port 7842. Handles all API routes. Imports `focus.py` directly for all macOS operations - no separate process or HTTP hop.
+Runs natively on the host via launchd (`com.membridge`), port 7842. Handles all API routes. Imports `focus.py` directly for all macOS operations - no separate process or HTTP hop.
 
 ### Focus module (`membridge/focus.py`)
 All osascript and iTerm2 logic: focus a tab by UUID or TTY, rename a tab, check PID liveness, list sessions. Called directly from `server.py` as a Python import.

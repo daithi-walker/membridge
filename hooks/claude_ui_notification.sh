@@ -20,7 +20,7 @@ print(json.dumps({
     'message':     sys.argv[3],
 }))" "$SESSION_ID" "${NOTIF_TYPE:-}" "${MESSAGE:-}" 2>/dev/null)
 
-curl -s -X POST http://localhost:7842/api/notification \
+curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/notification" \
   -H "Content-Type: application/json" \
   -d "$BODY" \
   --max-time 3 \

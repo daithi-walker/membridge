@@ -28,7 +28,7 @@ Claude Code (any session, any project)
   Stop hook              →  POST localhost:7842/api/stop         triggers auto-summary
   Notification hook      →  POST localhost:7842/api/notification fires macOS alert when Claude needs input
 
-localhost:7842  FastAPI + SQLite   runs natively via launchd (com.daihi.membridge)
+localhost:7842  FastAPI + SQLite   runs natively via launchd (com.membridge)
 ~/.membridge/sessions.db           SQLite DB, survives reinstalls
 ```
 
@@ -52,7 +52,7 @@ bash scripts/install.sh
 
 The installer:
 - Creates a Python venv via `uv` and installs the package
-- Writes a launchd plist (`com.daihi.membridge`) and starts the server on port 7842
+- Writes a launchd plist (`com.membridge`) and starts the server on port 7842
 - Registers the four Claude Code hooks in `~/.claude/settings.json`
 - Installs slash commands to `~/.claude/commands/`
 
@@ -111,7 +111,7 @@ uv run ruff check .    # lint
 
 Restart the server after Python changes:
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.daihi.membridge
+launchctl kickstart -k gui/$(id -u)/com.membridge
 ```
 
 Static file changes (`membridge/static/`) are live on browser refresh - no restart needed.

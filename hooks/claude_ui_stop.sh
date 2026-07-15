@@ -19,7 +19,7 @@ print(json.dumps({
     'transcript_path': sys.argv[3],
 }))" "$SESSION_ID" "${STOP_REASON:-}" "${TRANSCRIPT:-}" 2>/dev/null)
 
-curl -s -X POST http://localhost:7842/api/stop \
+curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/stop" \
   -H "Content-Type: application/json" \
   -d "$BODY" \
   --max-time 3 \

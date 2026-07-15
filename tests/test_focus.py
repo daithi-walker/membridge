@@ -13,7 +13,7 @@ from membridge import focus
 
 class TestSafePath:
     def test_accepts_normal_path(self):
-        assert focus._safe_path("/Users/david.walker/git/myproject") == "/Users/david.walker/git/myproject"
+        assert focus._safe_path("/Users/you/git/myproject") == "/Users/you/git/myproject"
 
     def test_accepts_path_with_spaces(self):
         assert focus._safe_path("/Users/foo/my project") == "/Users/foo/my project"

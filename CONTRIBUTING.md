@@ -17,7 +17,7 @@ Changes are live on browser refresh - no restart needed (editable install).
 ### Python (`membridge/`)
 Restart the server after changes:
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.daihi.membridge
+launchctl kickstart -k gui/$(id -u)/com.membridge
 ```
 
 ### Hooks (`hooks/*.sh`)

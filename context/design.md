@@ -200,7 +200,7 @@ Summary is also **editable** in the dashboard — user edits take precedence and
 
 A `launchd` plist starts the FastAPI server at login and restarts it on crash.
 
-Location: `~/Library/LaunchAgents/com.daihi.membridge.plist`
+Location: `~/Library/LaunchAgents/com.membridge.plist`
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -208,7 +208,7 @@ Location: `~/Library/LaunchAgents/com.daihi.membridge.plist`
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.daihi.membridge</string>
+  <string>com.membridge</string>
   <key>ProgramArguments</key>
   <array>
     <string>/path/to/venv/bin/uvicorn</string>

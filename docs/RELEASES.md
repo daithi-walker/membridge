@@ -4,6 +4,16 @@ Migration notes and breaking changes for each significant update. See `CHANGELOG
 
 ---
 
+## 2026-07-15 - Machine-agnostic config (v0.2.1)
+
+**Migration: re-run `install.sh` (launchd service renamed to `com.membridge`).**
+
+- launchd service renamed to `com.membridge`. Re-run `bash scripts/install.sh`. If an older MemBridge service is still loaded (it will fight for port 7842), unload and delete its plist from `~/Library/LaunchAgents/` first.
+- The server honours `MEMBRIDGE_HOST` / `MEMBRIDGE_PORT`; hooks POST to `MEMBRIDGE_URL` (default `http://localhost:7842`). Defaults are unchanged, so no action is needed unless you override them.
+- Removed hardcoded home-dir paths from tests, comments, and docs.
+
+---
+
 ## 2026-07-12 - Thinking pulse (v0.2.0)
 
 **Re-run `install.sh` to register the new `PostToolBatch` hook, then restart Claude Code.**
@@ -71,7 +81,7 @@ Generate a deck:
 
 ```bash
 git pull
-launchctl kickstart -k gui/$(id -u)/com.daihi.membridge  # picks up new API routes
+launchctl kickstart -k gui/$(id -u)/com.membridge  # picks up new API routes
 ```
 
 Install the new/renamed slash commands:
@@ -96,7 +106,7 @@ localStorage.removeItem('membridge_col_widths')
 
 ### What changed
 
-MemBridge no longer runs in Docker. The server (`uvicorn`) now runs natively on the Mac host via a single launchd plist (`com.daihi.membridge`). The separate focus server (port 7843) is gone - focus/rename/pid endpoints are now part of the main server on port 7842.
+MemBridge no longer runs in Docker. The server (`uvicorn`) now runs natively on the Mac host via a single launchd plist (`com.membridge`). The separate focus server (port 7843) is gone - focus/rename/pid endpoints are now part of the main server on port 7842.
 
 ### Migration steps
 
@@ -107,9 +117,9 @@ bash scripts/install.sh
 
 `install.sh` will:
 - Stop and remove the Docker container
-- Remove the old `com.daihi.membridge-focus` launchd plist
+- Remove the old `com.membridge-focus` launchd plist
 - Create a Python venv at `.venv/` (editable install - static file changes are live)
-- Load the new `com.daihi.membridge` plist on port 7842
+- Load the new `com.membridge` plist on port 7842
 
 ### Other actions required
 
@@ -121,8 +131,9 @@ cp .env.example .env
 
 **2. Fix bad cwd paths (if from the other machine backfill):**
 ```bash
+# Replace <old> / <new> with the mismatched home-dir prefixes for your machines.
 sqlite3 ~/.membridge/sessions.db \
-  "UPDATE sessions SET cwd = REPLACE(cwd, '/Users/david/walker/', '/Users/david.walker/') WHERE cwd LIKE '/Users/david/walker/%';"
+  "UPDATE sessions SET cwd = REPLACE(cwd, '/Users/<old>/', '/Users/<new>/') WHERE cwd LIKE '/Users/<old>/%';"
 ```
 
 **3. Install slash commands (handled by `install.sh`, but verify):**
@@ -143,7 +154,7 @@ tail -f /tmp/membridge.log
 launchctl list | grep membridge
 
 # Restart
-launchctl kickstart -k gui/$(id -u)/com.daihi.membridge
+launchctl kickstart -k gui/$(id -u)/com.membridge
 
 # Health check
 curl http://localhost:7842/api/sessions | python3 -c "import sys,json; s=json.load(sys.stdin); print(len(s), 'sessions')"
