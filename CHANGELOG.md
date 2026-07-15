@@ -4,6 +4,11 @@ Completed work, newest first.
 
 ---
 
+## v0.2.1 - 2026-07-15
+
+- Machine-agnostic config — launchd service renamed to `com.membridge`; server honours `MEMBRIDGE_HOST`/`MEMBRIDGE_PORT` and hooks POST to `MEMBRIDGE_URL` (defaults unchanged); removed hardcoded home-dir paths from tests, comments, and docs
+- Added `.github/CODEOWNERS`
+
 ## v0.2.0 - 2026-07-12
 
 - Thinking pulse — `PreToolUse` hook broadcasts `tool_start` SSE event with tool name; new `PostToolBatch` hook broadcasts `tool_end`; active session's ◉ button pulses fast (0.55s) with green fill while a tool is executing; `tool_name` shown on hover; clears on batch complete or Stop
@@ -74,7 +79,7 @@ Initial public release.
 - Auto-summary text-match dedup - same bracketed description not re-inserted even when transcript grows
 - Removed heartbeat tab rename on UUID change - was resetting all tab names after container rebuild (ADR 009)
 - Focus button resumes dead sessions: UUID match → PID/TTY → open new tab with `claude --resume` in correct cwd
-- Bulk-fixed 106 sessions with bad `/Users/david/walker/` paths; `Path.resolve()` guard added to upsert
+- Bulk-fixed 106 sessions with bad home-dir paths from a symlinked-home backfill; `Path.resolve()` guard added to upsert
 - Show ▾ filter dropdown (active/idle/stale/archived) replaces stale + archived checkboxes
 
 - Auto-summary dedup by `transcript_path:file_size` - Stop hook fires every turn, not just session close; dedup prevents duplicate history entries

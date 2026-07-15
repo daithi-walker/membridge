@@ -4,7 +4,7 @@
 # What this does:
 #   - Creates a uv venv and installs the package
 #   - Registers Claude Code hooks in ~/.claude/settings.json
-#   - Installs a single launchd plist (com.daihi.membridge) on port 7842
+#   - Installs a single launchd plist (com.membridge) on port 7842
 #   - Stops the Docker container and removes the old focus-server plist if present
 #
 # Prerequisites:
@@ -18,9 +18,8 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 HOOKS_DIR="$PROJECT_DIR/hooks"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
-PLIST_LABEL="com.daihi.membridge"
+PLIST_LABEL="com.membridge"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
-OLD_FOCUS_PLIST="$HOME/Library/LaunchAgents/com.daihi.membridge-focus.plist"
 
 echo "==> MemBridge installer (native)"
 echo "    Project: $PROJECT_DIR"
@@ -31,12 +30,6 @@ echo "==> Stopping old services..."
 # Stop Docker container if running
 if command -v docker &>/dev/null; then
   docker compose -f "$PROJECT_DIR/docker-compose.yml" down 2>/dev/null || true
-fi
-# Remove old focus server plist
-if [ -f "$OLD_FOCUS_PLIST" ]; then
-  launchctl unload "$OLD_FOCUS_PLIST" 2>/dev/null || true
-  rm -f "$OLD_FOCUS_PLIST"
-  echo "    Removed old focus plist"
 fi
 
 # ── 2. Create venv + install ──────────────────────────────────────────────────

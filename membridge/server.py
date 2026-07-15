@@ -557,7 +557,9 @@ def _compute_status(
 
 def main() -> None:
     import uvicorn
-    uvicorn.run("membridge.server:app", host="127.0.0.1", port=7842, reload=False)
+    host = os.getenv("MEMBRIDGE_HOST", "127.0.0.1")
+    port = int(os.getenv("MEMBRIDGE_PORT", "7842"))
+    uvicorn.run("membridge.server:app", host=host, port=port, reload=False)
 
 
 if __name__ == "__main__":

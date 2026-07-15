@@ -15,9 +15,9 @@ MemBridge needs to:
 
 Split into two processes:
 
-**Docker container (port 7842)** — FastAPI server, SQLite DB, summary poller, all business logic. Runs via `docker compose` managed by launchd (`com.daihi.membridge`).
+**Docker container (port 7842)** — FastAPI server, SQLite DB, summary poller, all business logic. Runs via `docker compose` managed by launchd (`com.membridge`).
 
-**Host Python process (port 7843, `scripts/focus_server.py`)** — Handles all macOS-native operations: iTerm2 focus, tab rename, PID alive-check. Runs directly on the host via a separate launchd plist (`com.daihi.membridge-focus`).
+**Host Python process (port 7843, `scripts/focus_server.py`)** — Handles all macOS-native operations: iTerm2 focus, tab rename, PID alive-check. Runs directly on the host via a separate launchd plist (`com.membridge-focus`).
 
 The container calls the focus server via `http://host.docker.internal:7843`. The focus server is a thin FastAPI app with no persistence of its own.
 

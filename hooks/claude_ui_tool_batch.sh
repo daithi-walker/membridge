@@ -8,7 +8,7 @@ SESSION_ID=$(echo "$PAYLOAD" | python3 -c "import sys,json; print(json.load(sys.
 [ -z "$SESSION_ID" ] && exit 0
 
 BODY="{\"session_id\":\"$SESSION_ID\",\"thinking\":false}"
-curl -s -X POST http://localhost:7842/api/touch \
+curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/touch" \
   -H "Content-Type: application/json" \
   -d "$BODY" \
   --max-time 2 \

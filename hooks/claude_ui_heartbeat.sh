@@ -38,7 +38,7 @@ print(json.dumps({
     'iterm_session_uuid':  sys.argv[6] or None,
 }))" "$SESSION_ID" "$CWD" "${BRANCH:-}" "${ITERM_TAB:-}" "${CLAUDE_PID:-}" "${ITERM_UUID:-}" 2>/dev/null)
 
-curl -s -X POST http://localhost:7842/api/heartbeat \
+curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/heartbeat" \
   -H "Content-Type: application/json" \
   -d "$BODY" \
   --max-time 3 \

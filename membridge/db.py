@@ -161,7 +161,7 @@ def upsert_heartbeat(
     iterm_session_uuid: str | None = None,
 ) -> UpsertResult:
     # Resolve symlinks so paths from machines with symlinked home dirs
-    # (e.g. /Users/david/walker vs /Users/david.walker) normalise to the same path.
+    # (e.g. /Users/jane/doe vs /Users/jane.doe) normalise to the same path.
     try:
         cwd = str(Path(cwd).resolve())
     except Exception:

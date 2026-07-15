@@ -12,14 +12,14 @@ TOOL_NAME=$(echo "$PAYLOAD" | python3 -c "import sys,json; print(json.load(sys.s
 if [ "$TOOL_NAME" = "AskUserQuestion" ]; then
   # Claude is presenting a choice — treat like awaiting input
   BODY=$(python3 -c "import json,sys; print(json.dumps({'session_id':sys.argv[1],'notif_type':'ask_user_question','message':''}))" "$SESSION_ID")
-  curl -s -X POST http://localhost:7842/api/notification \
+  curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/notification" \
     -H "Content-Type: application/json" \
     -d "$BODY" \
     --max-time 2 \
     >/dev/null 2>&1 || echo "[$(date -u +%FT%TZ)] notification failed for $SESSION_ID" >> /tmp/membridge-hook.log &
 else
   BODY=$(python3 -c "import json,sys; print(json.dumps({'session_id':sys.argv[1],'thinking':True,'tool_name':sys.argv[2]}))" "$SESSION_ID" "$TOOL_NAME")
-  curl -s -X POST http://localhost:7842/api/touch \
+  curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/touch" \
     -H "Content-Type: application/json" \
     -d "$BODY" \
     --max-time 2 \

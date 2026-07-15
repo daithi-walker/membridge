@@ -18,7 +18,7 @@ The limitations of the split proved untenable in practice:
 
 ## Decision
 
-Run MemBridge entirely as a native macOS process via a single launchd plist (`com.daihi.membridge`):
+Run MemBridge entirely as a native macOS process via a single launchd plist (`com.membridge`):
 
 - **uvicorn** runs directly on the host, managed by launchd
 - All osascript/iTerm2 operations execute in-process via `membridge/focus.py`

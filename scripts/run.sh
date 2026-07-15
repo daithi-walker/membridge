@@ -1,6 +1,6 @@
 #!/bin/bash
 # MemBridge native runner — sources .env then starts uvicorn.
-# Invoked by launchd (com.daihi.membridge.plist).
+# Invoked by launchd (com.membridge.plist).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,8 +16,9 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 HOST="${MEMBRIDGE_HOST:-127.0.0.1}"
+PORT="${MEMBRIDGE_PORT:-7842}"
 
 exec "$VENV/bin/uvicorn" membridge.server:app \
   --host "$HOST" \
-  --port 7842 \
+  --port "$PORT" \
   --app-dir "$PROJECT_DIR"

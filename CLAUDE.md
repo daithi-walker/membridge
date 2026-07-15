@@ -58,10 +58,10 @@ git diff HEAD..origin/main -- docs/RELEASES.md   # any new release sections
 bash scripts/install.sh    # first time / after breaking changes
 ```
 
-Server runs natively via launchd (`com.daihi.membridge`) on port 7842. No Docker.
+Server runs natively via launchd (`com.membridge`) on port 7842. No Docker.
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.daihi.membridge   # restart
+launchctl kickstart -k gui/$(id -u)/com.membridge   # restart
 tail -f /tmp/membridge.log                                  # logs
 curl http://localhost:7842/api/sessions                     # health check
 ```
@@ -78,7 +78,7 @@ No rebuild needed — editable install means changes are live on browser refresh
 ### Backend (server.py, db.py, summariser.py, focus.py)
 Restart the server to pick up Python changes:
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.daihi.membridge
+launchctl kickstart -k gui/$(id -u)/com.membridge
 ```
 
 ### Hooks (hooks/*.sh)
