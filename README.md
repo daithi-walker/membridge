@@ -109,6 +109,13 @@ uv run pytest          # run tests
 uv run ruff check .    # lint
 ```
 
+Before your first commit, install the disclosure/secret guards (see [Coding Standards](docs/CODING_STANDARDS.md#disclosure-protection-public-repo)):
+
+```bash
+uv run --extra dev pre-commit install
+cp .disclosure-denylist.example.txt .disclosure-denylist.txt   # then add client/project names
+```
+
 Restart the server after Python changes:
 ```bash
 launchctl kickstart -k gui/$(id -u)/com.membridge
