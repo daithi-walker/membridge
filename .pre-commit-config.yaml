@@ -1,0 +1,27 @@
+# Pre-PR disclosure & secret protection. Setup:
+#   uv run --extra dev pre-commit install
+# Run manually against everything:
+#   uv run --extra dev pre-commit run --all-files
+# Bump pinned versions:
+#   uv run --extra dev pre-commit autoupdate
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: gitleaks (secret/token scan)
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+
+  - repo: local
+    hooks:
+      - id: disclosure-scan
+        name: disclosure scan (client info / paths / emails / stray secrets files)
+        entry: python3 scripts/disclosure_scan.py
+        language: system
+        pass_filenames: true

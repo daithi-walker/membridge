@@ -1,0 +1,23 @@
+# Extends gitleaks' built-in ruleset with MemBridge-specific rules and allowlists.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key"
+regex = '''sk-ant-[A-Za-z0-9_-]{20,}'''
+keywords = ["sk-ant-"]
+
+[allowlist]
+description = "Illustrative / template files that intentionally contain key-shaped placeholders"
+paths = [
+  '''\.env\.example$''',
+  '''\.disclosure-denylist\.example\.txt$''',
+  '''docs/.*\.md$''',
+]
+# Placeholder values used in examples and docs — never real.
+regexes = [
+  '''sk-ant-xxx''',
+  '''sk-ant-your-key-here''',
+  '''your-api-key''',
+]

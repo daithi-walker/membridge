@@ -1,0 +1,16 @@
+# Disclosure denylist — client / project / codename terms that must NEVER appear
+# in tracked files of this public repo.
+#
+# SETUP: copy this file to `.disclosure-denylist.txt` (gitignored) and fill in your
+# real terms. For CI, put the same list in a `DISCLOSURE_DENYLIST` secret instead
+# (newline or comma separated). NEVER commit the real list — it would disclose the
+# very names it protects.
+#
+# One term per line. Matching is case-insensitive substring. Lines starting with
+# '#' and blank lines are ignored.
+
+# --- examples (replace with your own, then delete these) ---
+acme-corp
+ExampleClient
+project-nightingale
+initech
