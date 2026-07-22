@@ -176,7 +176,7 @@ def _rename_iterm_tab(old_name: str, new_name: str) -> None:
 
 @app.post("/api/touch")
 def touch(payload: TouchPayload) -> dict:
-    db.touch_session(payload.session_id)
+    db.touch_session(payload.session_id, working=payload.thinking)
     if payload.thinking:
         _broadcast(json.dumps({"type": "tool_start", "session_id": payload.session_id, "tool_name": payload.tool_name}))
     else:
@@ -314,6 +314,10 @@ def sessions() -> list[dict]:
             # Process alive: upgrade stale → idle
             if status == "stale":
                 status = "idle"
+            # Mid-turn (a tool is running / Claude is processing) and not awaiting input:
+            # force active even when last_seen has gone stale during a long single tool call.
+            if d.get("working") and not d.get("awaiting_input"):
+                status = "active"
         if pid_dead:
             # Process dead: downgrade active → idle; clear awaiting_input
             if status == "active":
