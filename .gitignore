@@ -10,5 +10,7 @@ build/
 .env
 .coverage
 .claude/
+# Real client/project denylist — never commit (the .example template is tracked)
+.disclosure-denylist.txt
 docs/presentations/
 commands/slides.md

@@ -23,6 +23,27 @@ Derived from the quality review of 2026-06-23. These standards apply to all code
 - `.env` is gitignored. **Never** commit a populated `.env` file.
 - All credentials must come from environment variables. No hardcoded API keys, tokens, or passwords.
 
+### Disclosure protection (public repo)
+
+MemBridge is open source, so tracked files must never leak secrets or **client/confidential information** (session summaries, notes, and ADRs are the usual risk). Two guards enforce this via pre-commit:
+
+- **gitleaks** — scans for API keys/tokens (incl. a custom `sk-ant-` rule in `.gitleaks.toml`).
+- **`scripts/disclosure_scan.py`** — flags client/project names, absolute home paths (`/Users/<name>`), internal emails, and blocks committing `.env` / `*.db`.
+
+Client names live in a denylist kept **out of the repo** (committing it would disclose the very names it protects):
+
+- Local: copy `.disclosure-denylist.example.txt` → `.disclosure-denylist.txt` (gitignored) and fill in real terms.
+- CI: set a `DISCLOSURE_DENYLIST` secret (newline/comma separated) instead — the scanner prefers the env var.
+
+One-time setup:
+
+```bash
+uv run --extra dev pre-commit install     # run scans on every commit
+cp .disclosure-denylist.example.txt .disclosure-denylist.txt   # then edit
+```
+
+Run against everything on demand: `uv run --extra dev pre-commit run --all-files`. If a finding is a false positive, use a placeholder owner (e.g. `/Users/you`) or extend the allowlists in `scripts/disclosure_scan.py`. Hooks are bypassable with `--no-verify` and don't run on forked-PR checkouts, so for external contributions the same scans should also run in CI.
+
 ---
 
 ## Error handling
