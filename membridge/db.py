@@ -28,6 +28,7 @@ class SessionRow(TypedDict, total=False):
     tickets: str | None
     starred: int
     awaiting_input: int
+    working: int
 
 
 class LinkedSession(TypedDict):
@@ -108,6 +109,9 @@ _MIGRATIONS = [
     "ALTER TABLE sessions ADD COLUMN tickets TEXT;",
     "ALTER TABLE sessions ADD COLUMN starred INTEGER NOT NULL DEFAULT 0;",
     "ALTER TABLE sessions ADD COLUMN awaiting_input INTEGER NOT NULL DEFAULT 0;",
+    # working = Claude is processing this turn (set on prompt/tool-start, cleared on stop).
+    # Lets status show "active" during long single tool calls where last_seen goes stale.
+    "ALTER TABLE sessions ADD COLUMN working INTEGER NOT NULL DEFAULT 0;",
 ]
 
 
@@ -184,6 +188,7 @@ def upsert_heartbeat(
                    SET last_seen = ?,
                        prompt_count = prompt_count + 1,
                        awaiting_input = 0,
+                       working = 1,
                        git_branch = COALESCE(?, git_branch),
                        iterm_tab = COALESCE(?, iterm_tab),
                        pid = COALESCE(?, pid),
@@ -196,8 +201,8 @@ def upsert_heartbeat(
             conn.execute(
                 """INSERT INTO sessions
                    (session_id, cwd, project_name, git_branch, iterm_tab, pid,
-                    iterm_session_uuid, first_seen, last_seen, prompt_count)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+                    iterm_session_uuid, first_seen, last_seen, prompt_count, working)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)""",
                 (session_id, cwd, project_name, branch or None, iterm_tab or None, pid,
                  iterm_session_uuid or None, now, now),
             )
@@ -218,12 +223,12 @@ def record_stop(session_id: str, stop_reason: str) -> bool:
         if not stop_reason and was_awaiting:
             # Notification hook already set a meaningful reason — don't overwrite with ""
             conn.execute(
-                "UPDATE sessions SET awaiting_input = 1 WHERE session_id = ?",
+                "UPDATE sessions SET awaiting_input = 1, working = 0 WHERE session_id = ?",
                 (session_id,),
             )
         else:
             conn.execute(
-                "UPDATE sessions SET last_stop_reason = ?, awaiting_input = 1 WHERE session_id = ?",
+                "UPDATE sessions SET last_stop_reason = ?, awaiting_input = 1, working = 0 WHERE session_id = ?",
                 (stop_reason, session_id),
             )
     return was_awaiting
@@ -295,12 +300,22 @@ def update_description(session_id: str, description: str) -> None:
         )
 
 
-def touch_session(session_id: str) -> None:
-    with _conn() as conn:
-        conn.execute(
-            "UPDATE sessions SET last_seen = ?, awaiting_input = 0 WHERE session_id = ?",
-            (_now(), session_id),
-        )
+def touch_session(session_id: str, working: bool = False) -> None:
+    """Bump last_seen. When working=True (a tool is starting), also mark the session
+    as processing so status stays 'active' through long single tool calls. A falsy
+    working leaves the flag untouched — only stop/notification clears it."""
+    if working:
+        with _conn() as conn:
+            conn.execute(
+                "UPDATE sessions SET last_seen = ?, awaiting_input = 0, working = 1 WHERE session_id = ?",
+                (_now(), session_id),
+            )
+    else:
+        with _conn() as conn:
+            conn.execute(
+                "UPDATE sessions SET last_seen = ?, awaiting_input = 0 WHERE session_id = ?",
+                (_now(), session_id),
+            )
 
 
 def delete_session(session_id: str) -> None:
