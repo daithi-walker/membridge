@@ -4,6 +4,25 @@ Migration notes and breaking changes for each significant update. See `CHANGELOG
 
 ---
 
+## 2026-07-22 - Fix: sessions no longer flip to idle during long tool calls
+
+**Migration: restart the server so the `working` column migration runs.**
+
+```bash
+git pull
+launchctl kickstart -k gui/$(id -u)/com.membridge
+```
+
+No `install.sh` / hook changes required — the migration is idempotent and runs on startup.
+
+### What changed
+
+- New `working` column on `sessions`: set on heartbeat (prompt submitted) and on tool-start (`/api/touch` with `thinking: true`), cleared on Stop/Notification.
+- `/api/sessions` now forces status `active` when a session is mid-turn (`working=1`) and its PID is alive, even if `last_seen` has aged past `active_threshold_secs`.
+- Fixes the bug where a session running a single long tool call (or generating a long response) slid to `idle` after 5 min, then snapped back to `active` on the next tool call. The `working` flag is gated on PID-alive, so a crashed session (flag never cleared) still ages out correctly.
+
+---
+
 ## 2026-07-15 - Machine-agnostic config (v0.2.1)
 
 **Migration: re-run `install.sh` (launchd service renamed to `com.membridge`).**

@@ -3,6 +3,7 @@
 Each test is pegged to a feature in docs/CHANGELOG.md so regressions are visible.
 """
 import os
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -234,6 +235,85 @@ def test_sessions_list_includes_status(client):
     sessions = res.json()
     assert len(sessions) == 1
     assert sessions[0]["status"] in ("active", "idle", "stale")
+
+
+# ── working flag / mid-turn active status ─────────────────────────────────────
+# Bug: a long single tool call (>active_threshold) let last_seen go stale, so the
+# session showed "idle" while Claude was actively working, then snapped back to
+# "active" on the next PreToolUse. Fix: a `working` flag set on heartbeat/tool-start
+# and cleared on stop forces "active" while the process is alive.
+
+def _backdate(session_id: str, seconds: int) -> None:
+    """Push last_seen into the past so _compute_status would return stale/idle."""
+    old = (datetime.now(UTC) - timedelta(seconds=seconds)).isoformat()
+    with db._conn() as conn:
+        conn.execute("UPDATE sessions SET last_seen = ? WHERE session_id = ?", (old, session_id))
+
+
+def test_touch_thinking_sets_working(client):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    db.record_stop("s1", "end_turn")  # clears working
+    assert db.get_session("s1")["working"] == 0
+    client.post("/api/touch", json={"session_id": "s1", "thinking": True, "tool_name": "Bash"})
+    assert db.get_session("s1")["working"] == 1
+
+
+def test_touch_thinking_false_leaves_working_untouched(client):
+    """PostToolBatch (thinking=false) must not clear working — the turn isn't over."""
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)  # working=1
+    client.post("/api/touch", json={"session_id": "s1", "thinking": False})
+    assert db.get_session("s1")["working"] == 1
+
+
+def test_heartbeat_sets_working(client):
+    client.post("/api/heartbeat", json={"session_id": "s1", "cwd": "/tmp", "branch": "main"})
+    assert db.get_session("s1")["working"] == 1
+
+
+def test_stop_clears_working(client):
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    assert db.get_session("s1")["working"] == 1
+    client.post("/api/stop", json={"session_id": "s1", "stop_reason": "end_turn"})
+    assert db.get_session("s1")["working"] == 0
+
+
+def test_working_session_forced_active_when_stale(client, monkeypatch):
+    """The core fix: mid-tool with a stale last_seen but a live PID reports active."""
+    monkeypatch.setattr("membridge.server._pid_alive", lambda pid: True)
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None, pid=4242)
+    _backdate("s1", 6000)  # well past active_threshold (300s), still < idle (7200s)
+    sessions = client.get("/api/sessions").json()
+    assert sessions[0]["status"] == "active"
+
+
+def test_stale_session_without_working_is_idle(client, monkeypatch):
+    """Control: same backdating without the working flag stays idle."""
+    monkeypatch.setattr("membridge.server._pid_alive", lambda pid: True)
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None, pid=4242)
+    db.record_stop("s1", "end_turn")  # clears working, sets awaiting
+    _backdate("s1", 6000)
+    sessions = client.get("/api/sessions").json()
+    assert sessions[0]["status"] == "idle"
+
+
+def test_working_but_dead_pid_not_forced_active(client, monkeypatch):
+    """A crashed session (working never cleared, PID dead) must not stay active."""
+    monkeypatch.setattr("membridge.server._pid_alive", lambda pid: False)
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None, pid=4242)
+    _backdate("s1", 6000)
+    sessions = client.get("/api/sessions").json()
+    assert sessions[0]["status"] != "active"
+
+
+def test_working_but_awaiting_not_forced_active(client, monkeypatch):
+    """If somehow both flags are set, awaiting_input wins — don't mask a prompt."""
+    monkeypatch.setattr("membridge.server._pid_alive", lambda pid: True)
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None, pid=4242)
+    with db._conn() as conn:
+        conn.execute("UPDATE sessions SET working = 1, awaiting_input = 1 WHERE session_id = ?", ("s1",))
+    _backdate("s1", 6000)
+    sessions = client.get("/api/sessions").json()
+    assert sessions[0]["status"] != "active"
 
 
 # ── Security headers ──────────────────────────────────────────────────────────
