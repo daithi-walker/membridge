@@ -76,6 +76,8 @@ class HeartbeatPayload(BaseModel):
     iterm_tab: str = ""
     pid: int | None = None
     iterm_session_uuid: str | None = None
+    prompt: str = ""
+    transcript_path: str = ""
 
 
 class TouchPayload(BaseModel):
@@ -88,6 +90,7 @@ class StopPayload(BaseModel):
     session_id: str
     stop_reason: str = ""
     transcript_path: str = ""
+    last_assistant_message: str = ""
 
 
 class SessionPatch(BaseModel):
@@ -157,6 +160,8 @@ def heartbeat(payload: HeartbeatPayload) -> dict:
         iterm_tab=payload.iterm_tab or None,
         pid=payload.pid,
         iterm_session_uuid=payload.iterm_session_uuid or None,
+        prompt=payload.prompt or None,
+        transcript_path=payload.transcript_path or None,
     )
     if result.is_new and payload.iterm_tab:
         # New session — rename the new tab to project · branch
@@ -187,7 +192,12 @@ def touch(payload: TouchPayload) -> dict:
 
 @app.post("/api/stop")
 async def stop(payload: StopPayload) -> dict:
-    was_awaiting = db.record_stop(payload.session_id, payload.stop_reason)
+    was_awaiting = db.record_stop(
+        payload.session_id,
+        payload.stop_reason,
+        last_assistant_message=payload.last_assistant_message or None,
+        transcript_path=payload.transcript_path or None,
+    )
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
     _notify_stop(payload.session_id, was_awaiting)

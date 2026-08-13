@@ -4,6 +4,13 @@ Completed work, newest first.
 
 ---
 
+## Unreleased
+
+- Append-only `activity_events` table (`kind='prompt'` on `UserPromptSubmit`, `kind='stop'` when Claude finishes a turn) - one interleaved timeline per client, alongside the existing `sessions` upsert which only ever keeps `first_seen`/`last_seen`. Started as two separate tables (`heartbeat_events`/`stop_events`), consolidated into one before release since the analysis needs both merged anyway; a one-time forward migration handles the transition automatically. Also captures the full `prompt` text / `last_assistant_message` text and `transcript_path` for each event - both come through in the real hook payloads already, at essentially no extra cost, and mean a gap or block found later can be understood directly instead of requiring a separate cross-reference into the transcript. See `docs/BACKLOG.md` #7 for a follow-up idea to purge full text on session archive, since it grows with transcript volume.
+- `db.get_activity_events(project_name, since, until, kind)` query helper.
+- `scripts/heartbeat_report.py` / `/membridge-report [client] [from] [to] [idle-minutes]` - reconstructs real engaged-work time for a client. Pairs each prompt with the next `stop` in the same session into an "active" interval (unambiguous - Claude was working, interactively or autonomously), then merges active intervals across every session for that client into one timeline before computing gaps - so having 2-3 sessions open for the same client at once doesn't create false gaps just because one of them is idle while another is active. A gap in the merged timeline under `--idle-minutes` (default 15) counts as engaged (reading/thinking); anything longer is flagged and excluded from the billable estimate, but still shown for a sanity check against memory. This is a heuristic, not a clock - it can't see reading time with no further activity after it, and it only covers events from 2026-08-13 onward.
+- 12 new tests (126 total).
+
 ## v0.2.1 - 2026-07-15
 
 - Machine-agnostic config — launchd service renamed to `com.membridge`; server honours `MEMBRIDGE_HOST`/`MEMBRIDGE_PORT` and hooks POST to `MEMBRIDGE_URL` (defaults unchanged); removed hardcoded home-dir paths from tests, comments, and docs

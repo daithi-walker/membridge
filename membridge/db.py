@@ -88,6 +88,47 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 """
 
+_ACTIVITY_EVENTS_SQL = """
+CREATE TABLE IF NOT EXISTS activity_events (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id      TEXT NOT NULL,
+    project_name    TEXT NOT NULL,
+    cwd             TEXT NOT NULL,
+    kind            TEXT NOT NULL CHECK (kind IN ('prompt', 'stop')),
+    stop_reason     TEXT,
+    text            TEXT,
+    transcript_path TEXT,
+    ts              TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+);
+"""
+
+_ACTIVITY_EVENTS_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_activity_events_ts ON activity_events (ts);
+"""
+
+_ACTIVITY_EVENTS_KIND_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_activity_events_kind_ts ON activity_events (kind, ts);
+"""
+
+
+def _migrate_legacy_event_tables(conn: sqlite3.Connection) -> None:
+    """One-time forward migration from the short-lived heartbeat_events/stop_events
+    tables into the unified activity_events table. No-ops once both are gone."""
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "heartbeat_events" in tables:
+        conn.execute(
+            """INSERT INTO activity_events (session_id, project_name, cwd, kind, stop_reason, ts)
+               SELECT session_id, project_name, cwd, 'prompt', NULL, ts FROM heartbeat_events"""
+        )
+        conn.execute("DROP TABLE heartbeat_events")
+    if "stop_events" in tables:
+        conn.execute(
+            """INSERT INTO activity_events (session_id, project_name, cwd, kind, stop_reason, ts)
+               SELECT session_id, project_name, cwd, 'stop', stop_reason, ts FROM stop_events"""
+        )
+        conn.execute("DROP TABLE stop_events")
+
 _SETTINGS_DEFAULTS = {
     "active_threshold_secs": "300",    # 5 min
     "idle_threshold_secs":   "7200",   # 2 h
@@ -112,6 +153,8 @@ _MIGRATIONS = [
     # working = Claude is processing this turn (set on prompt/tool-start, cleared on stop).
     # Lets status show "active" during long single tool calls where last_seen goes stale.
     "ALTER TABLE sessions ADD COLUMN working INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE activity_events ADD COLUMN text TEXT;",
+    "ALTER TABLE activity_events ADD COLUMN transcript_path TEXT;",
 ]
 
 
@@ -126,6 +169,10 @@ def init_db() -> None:
         conn.execute(_LINKS_SQL)
         conn.execute(_SUMMARIES_SQL)
         conn.execute(_SETTINGS_SQL)
+        conn.execute(_ACTIVITY_EVENTS_SQL)
+        conn.execute(_ACTIVITY_EVENTS_INDEX_SQL)
+        conn.execute(_ACTIVITY_EVENTS_KIND_INDEX_SQL)
+        _migrate_legacy_event_tables(conn)
         for sql in _MIGRATIONS:
             try:
                 conn.execute(sql)
@@ -163,6 +210,8 @@ def upsert_heartbeat(
     iterm_tab: str | None,
     pid: int | None = None,
     iterm_session_uuid: str | None = None,
+    prompt: str | None = None,
+    transcript_path: str | None = None,
 ) -> UpsertResult:
     # Resolve symlinks so paths from machines with symlinked home dirs
     # (e.g. /Users/jane/doe vs /Users/jane.doe) normalise to the same path.
@@ -196,7 +245,7 @@ def upsert_heartbeat(
                    WHERE session_id = ?""",
                 (now, branch or None, iterm_tab or None, pid, iterm_session_uuid or None, session_id),
             )
-            return UpsertResult(is_new=False, uuid_changed=uuid_changed, stored_tab_name=stored_tab)
+            result = UpsertResult(is_new=False, uuid_changed=uuid_changed, stored_tab_name=stored_tab)
         else:
             conn.execute(
                 """INSERT INTO sessions
@@ -206,10 +255,26 @@ def upsert_heartbeat(
                 (session_id, cwd, project_name, branch or None, iterm_tab or None, pid,
                  iterm_session_uuid or None, now, now),
             )
-            return UpsertResult(is_new=True, uuid_changed=False, stored_tab_name=None)
+            result = UpsertResult(is_new=True, uuid_changed=False, stored_tab_name=None)
+
+        # Append-only event per prompt, recorded after the sessions row is guaranteed
+        # to exist (FK) — first_seen/last_seen on `sessions` only ever keep the two
+        # endpoints, so this is the only place a mid-session gap survives.
+        conn.execute(
+            """INSERT INTO activity_events
+                   (session_id, project_name, cwd, kind, stop_reason, text, transcript_path, ts)
+               VALUES (?, ?, ?, 'prompt', NULL, ?, ?, ?)""",
+            (session_id, project_name, cwd, prompt or None, transcript_path or None, now),
+        )
+        return result
 
 
-def record_stop(session_id: str, stop_reason: str) -> bool:
+def record_stop(
+    session_id: str,
+    stop_reason: str,
+    last_assistant_message: str | None = None,
+    transcript_path: str | None = None,
+) -> bool:
     """Set awaiting_input=1. Returns True if session was already awaiting (no transition).
 
     If stop_reason is empty and awaiting_input is already set (Notification hook fired first),
@@ -217,7 +282,7 @@ def record_stop(session_id: str, stop_reason: str) -> bool:
     """
     with _conn() as conn:
         row = conn.execute(
-            "SELECT awaiting_input FROM sessions WHERE session_id = ?", (session_id,)
+            "SELECT awaiting_input, cwd, project_name FROM sessions WHERE session_id = ?", (session_id,)
         ).fetchone()
         was_awaiting = bool(row and row[0])
         if not stop_reason and was_awaiting:
@@ -230,6 +295,17 @@ def record_stop(session_id: str, stop_reason: str) -> bool:
             conn.execute(
                 "UPDATE sessions SET last_stop_reason = ?, awaiting_input = 1, working = 0 WHERE session_id = ?",
                 (stop_reason, session_id),
+            )
+        # Append-only event, mirroring heartbeat_events — lets a report correlate
+        # "prompt submitted" -> "Claude stopped" (active work) vs "Claude stopped"
+        # -> "next prompt" (idle/reading/away, ambiguous but a useful heuristic).
+        if row:
+            conn.execute(
+                """INSERT INTO activity_events
+                       (session_id, project_name, cwd, kind, stop_reason, text, transcript_path, ts)
+                   VALUES (?, ?, ?, 'stop', ?, ?, ?, ?)""",
+                (session_id, row["project_name"], row["cwd"], stop_reason or None,
+                 last_assistant_message or None, transcript_path or None, _now()),
             )
     return was_awaiting
 
@@ -426,6 +502,41 @@ def list_sessions(include_stale: bool = True) -> list[SessionRow]:
         row["linked_session_ids"] = link_map.get(r["session_id"], [])  # type: ignore[typeddict-unknown-key]
         result.append(row)
     return result
+
+
+def get_activity_events(
+    project_name: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    kind: str | None = None,
+) -> list[dict]:
+    """Raw activity events (kind='prompt' on UserPromptSubmit, kind='stop' when
+    Claude finishes a turn), oldest first, one interleaved timeline per client.
+    `since`/`until` are ISO-8601 strings (UTC, matching `_now()`'s format) and are
+    inclusive/exclusive-safe via string comparison since ISO-8601 sorts
+    lexicographically. Pass `kind` to filter to just 'prompt' or just 'stop'."""
+    clauses = []
+    params: list[str] = []
+    if project_name:
+        clauses.append("project_name = ?")
+        params.append(project_name)
+    if since:
+        clauses.append("ts >= ?")
+        params.append(since)
+    if until:
+        clauses.append("ts <= ?")
+        params.append(until)
+    if kind:
+        clauses.append("kind = ?")
+        params.append(kind)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with _conn() as conn:
+        rows = conn.execute(
+            f"""SELECT session_id, project_name, cwd, kind, stop_reason, text, transcript_path, ts
+                FROM activity_events {where} ORDER BY ts ASC""",
+            params,
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def get_settings() -> dict:

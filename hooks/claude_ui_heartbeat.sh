@@ -27,8 +27,11 @@ if [ -n "${ITERM_SESSION_ID:-}" ]; then
   ITERM_UUID=$(echo "$ITERM_SESSION_ID" | cut -d: -f2)
 fi
 
-BODY=$(python3 -c "
+# Read the original $PAYLOAD via stdin (not argv) for the potentially-large
+# 'prompt' field, rather than round-tripping it through a shell variable/argv.
+BODY=$(echo "$PAYLOAD" | python3 -c "
 import json, sys
+original = json.load(sys.stdin)
 print(json.dumps({
     'session_id':          sys.argv[1],
     'cwd':                 sys.argv[2],
@@ -36,6 +39,8 @@ print(json.dumps({
     'iterm_tab':           sys.argv[4],
     'pid':                 int(sys.argv[5]) if sys.argv[5] else None,
     'iterm_session_uuid':  sys.argv[6] or None,
+    'prompt':              original.get('prompt', ''),
+    'transcript_path':     original.get('transcript_path', ''),
 }))" "$SESSION_ID" "$CWD" "${BRANCH:-}" "${ITERM_TAB:-}" "${CLAUDE_PID:-}" "${ITERM_UUID:-}" 2>/dev/null)
 
 curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/heartbeat" \

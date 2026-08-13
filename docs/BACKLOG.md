@@ -79,6 +79,14 @@ Design (from 2026-07-11 discussion):
 
 Prerequisite for any Jira/ADO write-back automation (see `docs/ideas/` if that gets scoped out).
 
+### 7. Purge full text from activity_events on session archive
+
+`activity_events` stores the full `prompt` text (kind='prompt') and full `last_assistant_message` text (kind='stop') alongside the pointer `transcript_path`. Both grow roughly with the same volume as the source transcripts, so long-lived unarchived sessions could bloat the DB over time - the raw text is only really needed for reconciliation of recent/active work, not indefinitely.
+
+**Idea:** when a session is archived (`db.set_archived`, `/membridge-archive`), null out `text` on its `activity_events` rows (keep `kind`/`ts`/`transcript_path` - the timestamps and pointer are what matter for historical reporting; the full text isn't). `transcript_path` still lets the real content be recovered later if truly needed, as long as Claude Code's own `cleanupPeriodDays` (default 30) hasn't purged that transcript yet - so this isn't a guaranteed permanent record either way, just needs to be a deliberate choice rather than an assumption.
+
+**Effort:** Small - one `UPDATE activity_events SET text = NULL WHERE session_id = ?` call added to `set_archived(archived=True)`.
+
 ---
 
 ## Medium-term

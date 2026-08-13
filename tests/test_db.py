@@ -227,3 +227,125 @@ def test_list_sessions_includes_linked_ids():
     rows = {r["session_id"]: r for r in db.list_sessions()}
     assert "bbb" in rows["aaa"]["linked_session_ids"]
     assert "aaa" in rows["bbb"]["linked_session_ids"]
+
+
+# ── activity_events (append-only, kind='prompt'/'stop') ───────────────────────
+
+def test_prompt_event_recorded_on_new_session():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch="main", iterm_tab=None)
+    events = db.get_activity_events(kind="prompt")
+    assert len(events) == 1
+    assert events[0]["session_id"] == "aaa"
+    assert events[0]["project_name"] == "proj"
+    assert events[0]["kind"] == "prompt"
+    assert "ts" in events[0]
+
+
+def test_prompt_event_stores_full_text_and_transcript_path():
+    db.upsert_heartbeat(
+        session_id="aaa", cwd="/tmp/proj", branch="main", iterm_tab=None,
+        prompt="what's the shape of the data?",
+        transcript_path="/Users/x/.claude/projects/-tmp-proj/aaa.jsonl",
+    )
+    events = db.get_activity_events(kind="prompt")
+    assert events[0]["text"] == "what's the shape of the data?"
+    assert events[0]["transcript_path"] == "/Users/x/.claude/projects/-tmp-proj/aaa.jsonl"
+
+
+def test_prompt_event_text_defaults_to_none():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch="main", iterm_tab=None)
+    events = db.get_activity_events(kind="prompt")
+    assert events[0]["text"] is None
+    assert events[0]["transcript_path"] is None
+
+
+def test_prompt_event_recorded_on_every_prompt():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch="main", iterm_tab=None)
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch="main", iterm_tab=None)
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch="main", iterm_tab=None)
+    events = db.get_activity_events(kind="prompt")
+    assert len(events) == 3
+    # last_seen on the session row only keeps the endpoints, unlike the event log
+    session = db.get_session("aaa")
+    assert session["prompt_count"] == 3
+
+
+def test_activity_events_filtered_by_project():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj-a", branch=None, iterm_tab=None)
+    db.upsert_heartbeat(session_id="bbb", cwd="/tmp/proj-b", branch=None, iterm_tab=None)
+    events = db.get_activity_events(project_name="proj-a")
+    assert len(events) == 1
+    assert events[0]["session_id"] == "aaa"
+
+
+def test_activity_events_filtered_by_time_range():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    all_events = db.get_activity_events()
+    ts = all_events[0]["ts"]
+    # since == ts is inclusive
+    assert len(db.get_activity_events(since=ts)) == 1
+    # a since strictly after ts excludes it
+    assert len(db.get_activity_events(since=ts + "1")) == 0
+
+
+def test_activity_events_ordered_oldest_first():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    db.upsert_heartbeat(session_id="bbb", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    events = db.get_activity_events()
+    assert [e["session_id"] for e in events] == ["aaa", "bbb"]
+
+
+def test_cascade_delete_removes_activity_events():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    db.delete_session("aaa")
+    assert db.get_activity_events() == []
+
+
+def test_stop_event_stores_full_text_and_transcript_path():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    db.record_stop(
+        "aaa", "end_turn",
+        last_assistant_message="here's the answer...",
+        transcript_path="/Users/x/.claude/projects/-tmp-proj/aaa.jsonl",
+    )
+    events = db.get_activity_events(kind="stop")
+    assert events[0]["text"] == "here's the answer..."
+    assert events[0]["transcript_path"] == "/Users/x/.claude/projects/-tmp-proj/aaa.jsonl"
+
+
+def test_stop_event_recorded():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    db.record_stop("aaa", "end_turn")
+    events = db.get_activity_events(kind="stop")
+    assert len(events) == 1
+    assert events[0]["session_id"] == "aaa"
+    assert events[0]["project_name"] == "proj"
+    assert events[0]["stop_reason"] == "end_turn"
+
+
+def test_stop_event_not_recorded_for_unknown_session():
+    # No prior heartbeat -> no sessions row -> stop event skipped (FK safety)
+    db.record_stop("never-seen", "end_turn")
+    assert db.get_activity_events(kind="stop") == []
+
+
+def test_stop_events_recorded_on_every_stop():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    db.record_stop("aaa", "end_turn")
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    db.record_stop("aaa", "end_turn")
+    assert len(db.get_activity_events(kind="stop")) == 2
+
+
+def test_prompt_and_stop_events_interleave_in_one_timeline():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    db.record_stop("aaa", "end_turn")
+    events = db.get_activity_events()
+    assert [e["kind"] for e in events] == ["prompt", "stop"]
+
+
+def test_cascade_delete_removes_stop_events():
+    db.upsert_heartbeat(session_id="aaa", cwd="/tmp/proj", branch=None, iterm_tab=None)
+    db.record_stop("aaa", "end_turn")
+    db.delete_session("aaa")
+    assert db.get_activity_events(kind="stop") == []

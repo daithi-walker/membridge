@@ -11,12 +11,16 @@ TRANSCRIPT=$(echo "$PAYLOAD"    | python3 -c "import sys,json; print(json.load(s
 
 [ -z "$SESSION_ID" ] && exit 0
 
-BODY=$(python3 -c "
+# Read the original $PAYLOAD via stdin (not argv) for the potentially-large
+# 'last_assistant_message' field, rather than round-tripping it through a shell variable/argv.
+BODY=$(echo "$PAYLOAD" | python3 -c "
 import json, sys
+original = json.load(sys.stdin)
 print(json.dumps({
-    'session_id':      sys.argv[1],
-    'stop_reason':     sys.argv[2],
-    'transcript_path': sys.argv[3],
+    'session_id':              sys.argv[1],
+    'stop_reason':             sys.argv[2],
+    'transcript_path':         sys.argv[3],
+    'last_assistant_message':  original.get('last_assistant_message', ''),
 }))" "$SESSION_ID" "${STOP_REASON:-}" "${TRANSCRIPT:-}" 2>/dev/null)
 
 curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/stop" \
