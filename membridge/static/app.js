@@ -759,6 +759,7 @@ function openPanel(s, scrollIntoView) {
   };
 
   loadHistory(s.session_id);
+  loadSesh(s.session_id);
 
   const summariseBtn = document.getElementById('panel-summarise-btn');
   summariseBtn.textContent = '↻ Summarise';
@@ -819,6 +820,90 @@ function openPanel(s, scrollIntoView) {
   initLinksSection(s);
 
   panelOverlay.classList.add('open');
+}
+
+async function loadSesh(sessionId) {
+  const statusEl = document.getElementById('panel-sesh-status');
+  const enableBtn = document.getElementById('panel-sesh-enable-btn');
+  const snapBtn = document.getElementById('panel-sesh-snap-btn');
+  const logEl = document.getElementById('panel-sesh-log');
+  const enc = encodeURIComponent(sessionId);
+  enableBtn.style.display = 'none';
+  snapBtn.style.display = 'none';
+  logEl.style.display = 'none';
+  logEl.textContent = '';
+  statusEl.textContent = 'Checking…';
+
+  let st;
+  try {
+    st = await (await fetch(`/api/sessions/${enc}/sesh`)).json();
+  } catch (_) {
+    statusEl.textContent = 'Status unavailable.';
+    return;
+  }
+
+  if (!st.available) {
+    statusEl.textContent = 'sesh is not installed on this host.';
+    return;
+  }
+  if (!st.enabled) {
+    statusEl.textContent = 'Not backed up. Enable per-project snapshots on Stop.';
+    enableBtn.style.display = '';
+    enableBtn.textContent = 'Enable backups';
+    enableBtn.disabled = false;
+    enableBtn.onclick = async () => {
+      enableBtn.disabled = true;
+      enableBtn.textContent = 'Enabling…';
+      try {
+        const res = await fetch(`/api/sessions/${enc}/sesh/init`, { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          enableBtn.textContent = '✗ ' + (err.detail || 'Failed');
+          setTimeout(() => { enableBtn.textContent = 'Enable backups'; enableBtn.disabled = false; }, 3000);
+          return;
+        }
+        loadSesh(sessionId);
+      } catch (_) {
+        enableBtn.textContent = '✗ Error';
+        setTimeout(() => { enableBtn.textContent = 'Enable backups'; enableBtn.disabled = false; }, 3000);
+      }
+    };
+    return;
+  }
+
+  // Enabled: show snapshot button + the sesh log.
+  statusEl.textContent = 'Backed up' + (st.root ? ` · ${st.root}` : '') + '. Snapshots on every Stop.';
+  snapBtn.style.display = '';
+  snapBtn.textContent = 'Snapshot now';
+  snapBtn.disabled = false;
+  snapBtn.onclick = async () => {
+    snapBtn.disabled = true;
+    snapBtn.textContent = 'Snapshotting…';
+    try {
+      await fetch(`/api/sessions/${enc}/sesh/snapshot`, { method: 'POST' });
+      snapBtn.textContent = '✓ Done';
+      loadSeshLog(sessionId);
+    } catch (_) {
+      snapBtn.textContent = '✗ Error';
+    }
+    setTimeout(() => { snapBtn.textContent = 'Snapshot now'; snapBtn.disabled = false; }, 2500);
+  };
+  loadSeshLog(sessionId);
+}
+
+async function loadSeshLog(sessionId) {
+  const logEl = document.getElementById('panel-sesh-log');
+  try {
+    const data = await (await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/sesh/snapshots`)).json();
+    if (data.log) {
+      logEl.textContent = data.log;
+      logEl.style.display = '';
+    } else {
+      logEl.style.display = 'none';
+    }
+  } catch (_) {
+    logEl.style.display = 'none';
+  }
 }
 
 async function loadHistory(sessionId) {

@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from . import db
 from . import focus as _focus
+from . import sesh as _sesh
 from .summariser import summarise
 
 logging.basicConfig(level=logging.INFO)
@@ -200,6 +201,7 @@ async def stop(payload: StopPayload) -> dict:
     )
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
+    asyncio.create_task(_snapshot_on_stop(payload.session_id))
     _notify_stop(payload.session_id, was_awaiting)
     _broadcast(json.dumps({"type": "tool_end", "session_id": payload.session_id}))
     _broadcast("refresh")
@@ -304,6 +306,25 @@ async def _generate_summary(session_id: str, transcript_path: str) -> None:
         logger.warning("Summary task failed for %s: %s", session_id, e)
 
 
+async def _snapshot_on_stop(session_id: str) -> None:
+    """On Stop, checkpoint the session's project via sesh — but only if it opted in.
+
+    No-op unless the project has been `sesh init`'d, so this is free for sessions
+    that never enabled it. Runs off the event loop since sesh clones files.
+    """
+    try:
+        session = db.get_session(session_id)
+        cwd = session.get("cwd") if session else None
+        if not cwd or not _sesh.is_enabled(cwd):
+            return
+        loop = asyncio.get_event_loop()
+        did = await loop.run_in_executor(None, _sesh.snapshot, cwd, None)
+        if did:
+            logger.info("sesh snapshot taken for session %s (%s)", session_id, cwd)
+    except Exception as e:
+        logger.debug("sesh snapshot-on-stop skipped for %s: %s", session_id, e)
+
+
 @app.get("/api/sessions")
 def sessions() -> list[dict]:
     rows = db.list_sessions()
@@ -402,6 +423,74 @@ def get_summaries(session_id: str) -> list[dict]:
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return db.get_summaries(session_id)
+
+
+# ── sesh (session snapshots) ────────────────────────────────────────────────
+
+
+@app.get("/api/sessions/{session_id}/sesh")
+def sesh_status(session_id: str) -> dict:
+    """Whether sesh is installed and whether this session's project has opted in."""
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    cwd = session.get("cwd")
+    return {
+        "available": _sesh.available(),
+        "enabled": _sesh.is_enabled(cwd),
+        "root": _sesh.project_root(cwd),
+    }
+
+
+@app.post("/api/sessions/{session_id}/sesh/init")
+async def sesh_init(session_id: str) -> dict:
+    """Enable sesh for this session's project (the dashboard 'Enable backups' button)."""
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not _sesh.available():
+        raise HTTPException(status_code=503, detail="sesh is not installed on this host")
+    cwd = session.get("cwd")
+    if not cwd:
+        raise HTTPException(status_code=400, detail="Session has no recorded cwd")
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, _sesh.init, cwd)
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result.get("error", "sesh init failed"))
+    _broadcast("refresh")
+    return result
+
+
+@app.post("/api/sessions/{session_id}/sesh/snapshot")
+async def sesh_snapshot(session_id: str) -> dict:
+    """Take an on-demand checkpoint of this session's project."""
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    cwd = session.get("cwd")
+    if not _sesh.is_enabled(cwd):
+        raise HTTPException(status_code=400, detail="sesh not enabled for this project")
+    loop = asyncio.get_event_loop()
+    did = await loop.run_in_executor(None, _sesh.snapshot, cwd, None)
+    return {"ok": bool(did)}
+
+
+@app.get("/api/sessions/{session_id}/sesh/snapshots")
+def sesh_snapshots(session_id: str) -> dict:
+    """sesh's own log of this project's snapshots (raw text; sesh emits no JSON)."""
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    cwd = session.get("cwd")
+    return {"enabled": _sesh.is_enabled(cwd), "log": _sesh.snapshots(cwd) if cwd else ""}
+
+
+@app.get("/api/sesh/find")
+def sesh_find(q: str, cwd: str | None = None) -> dict:
+    """Full-text search across saved sessions (global unless a cwd is given)."""
+    if not q.strip():
+        raise HTTPException(status_code=400, detail="q is required")
+    return {"available": _sesh.available(), "result": _sesh.find(q, cwd=cwd)}
 
 
 @app.patch("/api/sessions/{session_id}")

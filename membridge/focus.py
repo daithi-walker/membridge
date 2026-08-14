@@ -6,6 +6,8 @@ import re
 import shutil
 import subprocess
 
+from . import sesh as _sesh
+
 logger = logging.getLogger(__name__)
 
 _CLAUDE_BIN = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
@@ -123,7 +125,7 @@ tell application "iTerm2"
         delay 0.8
         tell newTab
             repeat with s in sessions
-                tell s to write text "cd {cwd} && {claude_bin} --resume {session_id}"
+                tell s to write text "cd {cwd} && {resume_cmd}"
             end repeat
         end tell
     end tell
@@ -260,14 +262,33 @@ def focus_session(
         safe_cwd = os.path.expanduser("~")
         safe_sid = session_id[:8] if _SAFE_ID_RE.match(session_id[:8]) else "claude"
 
+    resume_cmd = _resume_command(claude_bin, safe_cwd, safe_sid)
     script = _OPEN_TAB.format(
         cwd=safe_cwd.replace('"', '\\"'),
-        claude_bin=claude_bin.replace('"', '\\"'),
-        session_id=safe_sid.replace('"', '\\"'),
+        resume_cmd=resume_cmd.replace('"', '\\"'),
         tab_name=tab_name.replace('"', '\\"'),
     )
     _run(script)
     return "opened"
+
+
+def _resume_command(claude_bin: str, cwd: str, session_id: str) -> str:
+    """Shell command to resume a session, preferring sesh where the project opted in.
+
+    When the project has a `.sesh/` archive, try `sesh resume <id>` first: it
+    resumes the live session directly if present, else materializes it from a
+    snapshot. It exits non-zero when it knows nothing of the id, so we fall back
+    to plain `claude --resume`. Both are already shell-safe (see _safe_* guards).
+    """
+    claude_resume = f"{claude_bin} --resume {session_id}"
+    try:
+        if _sesh.available() and _sesh.is_enabled(cwd):
+            sesh_bin = _sesh._SESH_BIN
+            if sesh_bin and _SAFE_PATH_RE.match(sesh_bin):
+                return f"{sesh_bin} resume {session_id} || {claude_resume}"
+    except Exception as e:
+        logger.debug("sesh resume preference skipped: %s", e)
+    return claude_resume
 
 
 def rename_tab(old_name: str, new_name: str) -> str:

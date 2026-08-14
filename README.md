@@ -14,6 +14,7 @@ When you run Claude Code across many iTerm2 tabs over days or weeks, you lose tr
 - **Focus button** - raises the right iTerm2 tab, or opens a new tab with `claude --resume <id>`
 - **Push notifications** - macOS alert when Claude stops and needs your attention
 - **Session links** - bidirectionally link related sessions and navigate between them
+- **Session backups (sesh)** - opt in per project to snapshot a session's transcripts on every Stop via the [`sesh`](https://github.com/m-gharibi/sesh) CLI; resume then prefers `sesh resume`. MemBridge owns metadata; sesh owns content preservation and full-text search across saved sessions
 - **Slash commands** - summarise, rename, note, link, and load context from inside Claude
 - **Notes field** - per-session work log, auto-saved
 - **Backfill** - import existing session history from `~/.claude/projects/`
@@ -25,7 +26,7 @@ When you run Claude Code across many iTerm2 tabs over days or weeks, you lose tr
 Claude Code (any session, any project)
   UserPromptSubmit hook  →  POST localhost:7842/api/heartbeat   registers session, increments prompt count
   PreToolUse hook        →  POST localhost:7842/api/touch        keeps last_seen fresh during long responses
-  Stop hook              →  POST localhost:7842/api/stop         triggers auto-summary
+  Stop hook              →  POST localhost:7842/api/stop         triggers auto-summary + sesh snapshot (if opted in)
   Notification hook      →  POST localhost:7842/api/notification fires macOS alert when Claude needs input
 
 localhost:7842  FastAPI + SQLite   runs natively via launchd (com.membridge)

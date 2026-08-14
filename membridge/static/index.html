@@ -1193,6 +1193,21 @@
           <div id="panel-history-list"></div>
         </div>
 
+        <div id="panel-sesh-section">
+          <div class="panel-section-title">
+            Session backups
+            <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(sesh)</span>
+          </div>
+          <div id="panel-sesh-body">
+            <div id="panel-sesh-status" style="font-size:11px;color:var(--text-muted)">—</div>
+            <div class="panel-actions" id="panel-sesh-actions" style="margin-top:6px">
+              <button class="btn-resume" id="panel-sesh-enable-btn" style="display:none">Enable backups</button>
+              <button class="btn-resume" id="panel-sesh-snap-btn" style="display:none">Snapshot now</button>
+            </div>
+            <pre id="panel-sesh-log" style="display:none;font-size:10px;line-height:1.4;color:var(--text-muted);white-space:pre-wrap;word-break:break-word;margin:8px 0 0;max-height:180px;overflow:auto"></pre>
+          </div>
+        </div>
+
         <div style="flex:1;display:flex;flex-direction:column">
           <div class="panel-section-title">Notes <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(auto-saved)</span></div>
           <textarea id="panel-notes" placeholder="Work log, next steps, links…"></textarea>
