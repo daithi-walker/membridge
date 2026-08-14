@@ -123,6 +123,35 @@ launchctl kickstart -k gui/$(id -u)/com.membridge
 
 Static file changes (`membridge/static/`) are live on browser refresh - no restart needed.
 
+## Troubleshooting
+
+**Server won't restart / crash-loops after a `git pull` (new code not loaded, schema migration didn't run).**
+
+Symptoms: the dashboard responds on `http://localhost:7842` but is serving *old* code (e.g. a new table like `activity_events` is missing from `~/.membridge/sessions.db`); `launchctl print gui/$(id -u)/com.membridge` shows a large `runs =` count with `last exit code = 1`.
+
+Root cause: a stale, long-lived `uvicorn` process (often started manually or by a previous session, days/weeks old) is still holding port 7842. launchd's managed process then can't bind, exits 1, and `KeepAlive` retries forever - so the port stays owned by the old code and `kickstart -k` never wins. `init_db()` only runs at startup, so the schema is whatever the stale process created.
+
+Fix - evict the stale holder, then reload the job from a clean state:
+```bash
+# 1. Find and hard-kill whatever holds the port (SIGTERM is often ignored - use -9)
+lsof -nP -iTCP:7842 -sTCP:LISTEN            # note the PID
+kill -9 <pid>
+
+# 2. Reload the launchd job to clear accumulated throttle/crash-loop state
+launchctl bootout   gui/$(id -u)/com.membridge                       || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.membridge.plist
+launchctl kickstart gui/$(id -u)/com.membridge
+
+# 3. Verify: fresh process, new code, table present
+launchctl print gui/$(id -u)/com.membridge | grep -E 'state =|runs =|pid ='
+tail -f /tmp/membridge.log                  # should show "Application startup complete"
+sqlite3 ~/.membridge/sessions.db '.tables'  # confirm expected tables exist
+```
+
+Notes:
+- `init_db()` is idempotent (`CREATE TABLE IF NOT EXISTS` + guarded `ALTER`s). If you only need the schema created/migrated without a full restart, run it directly: `.venv/bin/python -c "from membridge import db; db.init_db()"`.
+- The `sqlite3` CLI does **not** enable `PRAGMA foreign_keys` by default, so `DELETE FROM sessions ...` there will **not** cascade to `activity_events`/`session_summaries`. The app's own connection sets the pragma, so deletes via the API/dashboard cascade correctly - only manual CLI deletes leave orphans.
+
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md) - system diagram, component responsibilities, data model
