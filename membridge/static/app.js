@@ -1335,7 +1335,28 @@ function connectSSE() {
     ticketBaseUrl = s.ticket_base_url || '';
   } catch (_) {}
   initColResize();
-  fetchSessions();
+  await fetchSessions();
+  openSessionFromUrl();
   restartRefreshTimer();
   connectSSE();
 })();
+
+// Deep-link: ?session=<id> or #session=<id> opens that session's panel on load.
+// Accepts a full session_id or an 8-char (or longer) prefix. Used by external
+// assets (e.g. review docs) that stamp their originating session ID.
+function openSessionFromUrl() {
+  const params = new URLSearchParams(location.search);
+  let target = params.get('session') || '';
+  if (!target && location.hash.startsWith('#session=')) {
+    target = location.hash.slice('#session='.length);
+  }
+  if (!target) return;
+  target = decodeURIComponent(target).trim();
+  const s = sessions.find(x => x.session_id === target)
+        || sessions.find(x => x.session_id.startsWith(target));
+  if (s) {
+    openPanel(s, true);
+  } else {
+    console.warn('MemBridge deep-link: session not found:', target);
+  }
+}
