@@ -35,7 +35,7 @@ DENYLIST_FILE = ".disclosure-denylist.txt"
 _PATH_ALLOW = {
     "jane", "john", "you", "user", "username", "me", "example",
     "ci", "runner", "home", "root", "someone", "yourname",
-    "foo", "bar", "baz", "qux",
+    "foo", "bar", "baz", "qux", "x",
 }
 
 
@@ -77,7 +77,13 @@ class Finding:
 
 
 def load_denylist(root: Path) -> list[str]:
-    """Return lowercased client/project terms from env var or gitignored file."""
+    """Return client/project terms from env var or gitignored file.
+
+    Plain terms are lowercased for case-insensitive substring matching. Terms
+    prefixed with 're:' are kept verbatim (case preserved) and treated as
+    case-insensitive regexes in scan_file — use these for a term that is also a
+    common English word, e.g. 're:\\bcat\\b' matches the whole word "cat" but not
+    "category" or "scatter"."""
     raw = os.environ.get("DISCLOSURE_DENYLIST", "")
     terms: list[str] = []
     if raw:
@@ -89,8 +95,9 @@ def load_denylist(root: Path) -> list[str]:
     out: list[str] = []
     for t in terms:
         t = t.strip()
-        if t and not t.startswith("#"):
-            out.append(t.lower())
+        if not t or t.startswith("#"):
+            continue
+        out.append(t if t.lower().startswith("re:") else t.lower())
     return out
 
 
@@ -116,11 +123,26 @@ def scan_file(path: str, denylist: list[str]) -> list[Finding]:
     except (OSError, UnicodeDecodeError):
         return findings  # unreadable or binary — nothing to scan
 
+    # Split denylist into plain substring terms and precompiled 're:' regexes.
+    plain: list[str] = []
+    regexes: list[tuple[str, re.Pattern]] = []
+    for term in denylist:
+        if term.lower().startswith("re:"):
+            try:
+                regexes.append((term, re.compile(term[3:], re.IGNORECASE)))
+            except re.error:
+                plain.append(term.lower())  # bad regex — fall back to literal
+        else:
+            plain.append(term)
+
     for i, line in enumerate(text.splitlines(), start=1):
         low = line.lower()
-        for term in denylist:
+        for term in plain:
             if term in low:
                 findings.append(Finding(path, i, "client-term", f"matched '{term}'"))
+        for raw, rx in regexes:
+            if rx.search(line):
+                findings.append(Finding(path, i, "client-term", f"matched '{raw}'"))
         for m in _HOME_PATH.finditer(line):
             if not _owner_allowed(m.group(1)):
                 findings.append(Finding(path, i, "home-path", m.group(0)))

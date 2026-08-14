@@ -8,9 +8,16 @@
 #
 # One term per line. Matching is case-insensitive substring. Lines starting with
 # '#' and blank lines are ignored.
+#
+# For a term that is also a common English word, prefix it with 're:' to match as
+# a case-insensitive regex and use word boundaries so it fires only on the whole
+# word. For example, 're:\bcat\b' matches "cat" but not "category" or "scatter":
+#     re:\bcat\b
+# This catches the standalone term but not innocent substrings.
 
 # --- examples (replace with your own, then delete these) ---
 acme-corp
 ExampleClient
 project-nightingale
 initech
+re:\bcat\b

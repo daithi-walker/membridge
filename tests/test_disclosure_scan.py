@@ -75,6 +75,35 @@ def test_clean_file_passes(tmp_path):
     assert ds.scan_file(f, ["acmecorp"]) == []
 
 
+def test_regex_term_matches_word_boundary(tmp_path):
+    f = _write(tmp_path, "doc.md", "shipped for Cat this week")
+    findings = ds.scan_file(f, [r"re:\bcat\b"])
+    assert any(x.kind == "client-term" for x in findings)
+
+
+def test_regex_term_does_not_match_substring(tmp_path):
+    # A whole-word term must not fire on "category" / "scatter"
+    f = _write(tmp_path, "doc.md", "this category covers the cat cases too")
+    findings = ds.scan_file(f, [r"re:\bcat\b"])
+    # 'cat cases' has 'cat' as a whole word -> that SHOULD match; 'category' must NOT
+    matched_lines = [x for x in findings if x.kind == "client-term"]
+    assert len(matched_lines) == 1  # only the standalone 'cat', not 'category'
+
+
+def test_invalid_regex_falls_back_to_literal(tmp_path):
+    f = _write(tmp_path, "doc.md", "contains re:[ verbatim")
+    # An unclosed-class regex is invalid; term is treated as a literal substring.
+    findings = ds.scan_file(f, ["re:["])
+    assert any(x.kind == "client-term" for x in findings)
+
+
+def test_load_denylist_preserves_regex_case(monkeypatch, tmp_path):
+    monkeypatch.delenv("DISCLOSURE_DENYLIST", raising=False)
+    (tmp_path / ds.DENYLIST_FILE).write_text("Acme\nre:\\bCat\\b\n", encoding="utf-8")
+    # plain term lowercased, regex term kept verbatim
+    assert ds.load_denylist(tmp_path) == ["acme", r"re:\bCat\b"]
+
+
 # ── denylist loading ────────────────────────────────────────────────────────---
 
 def test_load_denylist_from_env(monkeypatch, tmp_path):

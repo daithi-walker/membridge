@@ -196,7 +196,7 @@ def main() -> None:
         report_active_time(events, args.idle_minutes)
         return
 
-    # No filter given — group by inferred client so bb vs edge (etc.) separate automatically
+    # No filter given — group by inferred client so each separates out automatically
     by_client: dict[str, list[dict]] = {}
     for ev in events:
         by_client.setdefault(infer_client(ev["cwd"]), []).append(ev)
