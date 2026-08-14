@@ -4,6 +4,33 @@ Migration notes and breaking changes for each significant update. See `CHANGELOG
 
 ---
 
+## 2026-08-12 - Activity events + `/membridge-report`
+
+**No breaking changes.** `git pull` + restart picks up the new table automatically; re-run `install.sh` to get the new slash command.
+
+```bash
+git pull
+bash scripts/install.sh                                   # installs /membridge-report
+launchctl kickstart -k gui/$(id -u)/com.membridge         # picks up db.py/server.py changes
+```
+
+### What changed
+
+- New append-only `activity_events` table - one row per `UserPromptSubmit` (`kind='prompt'`) and per `Stop` (`kind='stop'`), with full prompt/response text and a `transcript_path` pointer. Created automatically by `init_db()` / the idempotent `_MIGRATIONS` list on first server start after pulling - no manual SQL needed.
+- `db.get_activity_events(project_name, since, until, kind)` query helper.
+- `scripts/heartbeat_report.py` and the new `/membridge-report [client] [from] [to] [idle-minutes]` slash command - reconstructs real engaged-work time for a client by pairing each prompt with its session's next stop into an "active" interval, merging overlapping sessions' intervals before computing idle gaps. Only covers activity from 2026-08-13 onward (when tracking was added) - it cannot backfill earlier history.
+- `hooks/claude_ui_heartbeat.sh` and `hooks/claude_ui_stop.sh` updated to POST the extra fields (`text`, `transcript_path`) needed for the new table - no hook re-registration required, hooks are read fresh from the repo on each invocation.
+
+### Steps on each machine
+
+```bash
+git pull
+bash scripts/install.sh   # installs the new /membridge-report command
+launchctl kickstart -k gui/$(id -u)/com.membridge
+```
+
+---
+
 ## 2026-07-22 - Fix: sessions no longer flip to idle during long tool calls
 
 **Migration: restart the server so the `working` column migration runs.**

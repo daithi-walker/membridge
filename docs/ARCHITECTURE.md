@@ -65,7 +65,7 @@ Runs natively on the host via launchd (`com.membridge`), port 7842. Handles all 
 All osascript and iTerm2 logic: focus a tab by UUID or TTY, rename a tab, check PID liveness, list sessions. Called directly from `server.py` as a Python import.
 
 ### SQLite (`membridge/db.py`)
-Two tables: `sessions` and `session_summaries`. Migrations applied on startup via `_MIGRATIONS` list (idempotent). DB lives at `~/.membridge/sessions.db`.
+Tables: `sessions`, `session_summaries`, `session_links`, `activity_events`, `settings`. Migrations applied on startup via `_MIGRATIONS` list (idempotent). DB lives at `~/.membridge/sessions.db`.
 
 ### Dashboard (`membridge/static/`)
 Vanilla JS, no build step. Editable install (`uv pip install -e .`) means static file changes are live on browser refresh. Receives live updates via SSE (`EventSource` → `/api/stream`). Side panel shows full session metadata, editable summary, notes, linked sessions, and summary history.
@@ -107,6 +107,21 @@ settings (
 )
 -- Keys: active_threshold_secs (300), idle_threshold_secs (7200),
 --       refresh_interval_secs (30), ticket_base_url ('')
+
+activity_events (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id      TEXT,     -- FK → sessions.session_id, ON DELETE CASCADE
+  project_name    TEXT,
+  cwd             TEXT,
+  kind            TEXT,     -- 'prompt' (UserPromptSubmit) | 'stop' (Stop hook)
+  stop_reason     TEXT,
+  text            TEXT,     -- prompt text or last assistant message
+  transcript_path TEXT,
+  ts              TEXT      -- ISO8601 UTC
+)
+-- Append-only. One row per prompt submitted and per turn completed;
+-- consumed by scripts/heartbeat_report.py / /membridge-report to
+-- reconstruct real engaged-work time.
 ```
 
 ## Status computation
