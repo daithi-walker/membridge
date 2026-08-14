@@ -193,13 +193,13 @@ class TestDecodeProjectFolder:
         assert focus._decode_project_folder(self._encode(d)) == str(d)
 
     def test_decodes_dotted_component(self, tmp_path):
-        # 'david.walker' and '.claude' both encode dots to dashes
-        d = self._make_tree(tmp_path, "Users/david.walker/.claude/worktrees/wt")
+        # 'jane.doe' and '.claude' both encode dots to dashes
+        d = self._make_tree(tmp_path, "Users/jane.doe/.claude/worktrees/wt")
         assert focus._decode_project_folder(self._encode(d)) == str(d)
 
     def test_decodes_dashed_component(self, tmp_path):
         # literal dashes in a component must not be mistaken for separators
-        d = self._make_tree(tmp_path, "git/cro-data-contracts")
+        d = self._make_tree(tmp_path, "git/acme-data-contracts")
         assert focus._decode_project_folder(self._encode(d)) == str(d)
 
     def test_returns_none_when_path_absent(self, tmp_path):

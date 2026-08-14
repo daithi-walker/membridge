@@ -40,6 +40,6 @@ This prevents notification spam when the user is already in the session, and pre
 
 ## Consequences
 
-- `active` sessions pulse orange even when Claude hasn't asked anything — this is intentional: it signals "don't interrupt, work in progress". The colour matches the SandboxAQ accent (`#E4A636`) to feel on-brand.
+- `active` sessions pulse orange even when Claude hasn't asked anything — this is intentional: it signals "don't interrupt, work in progress". The warm amber accent (`#E4A636`) is used consistently across the UI.
 - We cannot detect *what kind* of input Claude wants (decision vs free text) from the hook payload alone. The green state means "Claude is waiting" without distinguishing. Finer-grained detection (e.g. watching for `AskUserQuestion` tool calls via `PreToolUse`) is a future option.
 - The fast pulse (1.2s) for working vs slow pulse (2s) for awaiting gives a secondary timing cue in addition to colour.

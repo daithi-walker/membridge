@@ -58,7 +58,7 @@ def _decode_project_folder(folder: str) -> str | None:
             children = os.listdir(base)
         except OSError:
             continue
-        # Longest names first so multi-token components (e.g. "cro-data-contracts")
+        # Longest names first so multi-token components (e.g. "acme-data-contracts")
         # win over shorter prefixes, keeping the walk deterministic.
         for child in sorted(children, key=len, reverse=True):
             nxt = os.path.join(base, child)
