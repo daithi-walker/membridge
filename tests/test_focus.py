@@ -174,6 +174,92 @@ class TestFocusSession:
         assert "!!bad" not in called_script
 
 
+# ── resume_cwd / _decode_project_folder ───────────────────────────────────────
+
+class TestDecodeProjectFolder:
+    def _make_tree(self, tmp_path, rel):
+        d = tmp_path.joinpath(*rel.split("/"))
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _encode(self, path):
+        return str(path).replace("/", "-").replace(".", "-")
+
+    def test_rejects_non_absolute_folder(self):
+        assert focus._decode_project_folder("no-leading-dash") is None
+
+    def test_decodes_simple_path(self, tmp_path):
+        d = self._make_tree(tmp_path, "Users/dave")
+        assert focus._decode_project_folder(self._encode(d)) == str(d)
+
+    def test_decodes_dotted_component(self, tmp_path):
+        # 'david.walker' and '.claude' both encode dots to dashes
+        d = self._make_tree(tmp_path, "Users/david.walker/.claude/worktrees/wt")
+        assert focus._decode_project_folder(self._encode(d)) == str(d)
+
+    def test_decodes_dashed_component(self, tmp_path):
+        # literal dashes in a component must not be mistaken for separators
+        d = self._make_tree(tmp_path, "git/cro-data-contracts")
+        assert focus._decode_project_folder(self._encode(d)) == str(d)
+
+    def test_returns_none_when_path_absent(self, tmp_path):
+        missing = tmp_path / "does" / "not" / "exist"
+        assert focus._decode_project_folder(self._encode(missing)) is None
+
+
+class TestResumeCwd:
+    def _seed(self, tmp_path, cwd_rel, session_id):
+        """Create a real cwd dir + a transcript under its encoded project folder."""
+        cwd = tmp_path / "home"
+        cwd = cwd.joinpath(*cwd_rel.split("/"))
+        cwd.mkdir(parents=True, exist_ok=True)
+        projects = tmp_path / "projects"
+        folder = str(cwd).replace("/", "-").replace(".", "-")
+        (projects / folder).mkdir(parents=True, exist_ok=True)
+        (projects / folder / f"{session_id}.jsonl").write_text("{}\n")
+        return cwd, projects
+
+    def test_returns_decoded_transcript_dir(self, tmp_path):
+        cwd, projects = self._seed(tmp_path, "git/proj/.claude/worktrees/wt", "sid1")
+        with patch("membridge.focus._PROJECTS_DIR", str(projects)):
+            # DB cwd is stale/wrong; we should recover the real dir from the folder
+            assert focus.resume_cwd("sid1", "/some/stale/db/cwd") == str(cwd)
+
+    def test_falls_back_when_no_transcript(self, tmp_path):
+        projects = tmp_path / "projects"
+        projects.mkdir()
+        with patch("membridge.focus._PROJECTS_DIR", str(projects)):
+            assert focus.resume_cwd("missing", "/db/cwd") == "/db/cwd"
+
+    def test_falls_back_when_folder_undecodable(self, tmp_path):
+        # transcript exists but its cwd dir was deleted → cannot resolve → fallback
+        projects = tmp_path / "projects"
+        folder = "-Users-ghost-git-gone"
+        (projects / folder).mkdir(parents=True)
+        (projects / folder / "sid2.jsonl").write_text("{}\n")
+        with patch("membridge.focus._PROJECTS_DIR", str(projects)):
+            assert focus.resume_cwd("sid2", "/db/cwd") == "/db/cwd"
+
+
+class TestFocusSessionUsesResumeCwd:
+    def test_open_tab_uses_resolved_cwd(self):
+        with patch("membridge.focus._run", return_value="opened") as mock_run, \
+             patch("membridge.focus.resume_cwd", return_value="/real/resume/dir") as mock_rc:
+            result = focus.focus_session(session_id="abc123", cwd="/stale/db/cwd")
+        assert result == "opened"
+        mock_rc.assert_called_once_with("abc123", "/stale/db/cwd")
+        script = mock_run.call_args[0][0]
+        assert "/real/resume/dir" in script
+        assert "/stale/db/cwd" not in script
+
+    def test_live_focus_skips_resume_cwd(self):
+        # UUID focus succeeds → resume_cwd must not be consulted
+        with patch("membridge.focus._run", return_value="focused"), \
+             patch("membridge.focus.resume_cwd") as mock_rc:
+            focus.focus_session(session_id="abc123", iterm_uuid="UUID", cwd="/tmp/proj")
+        mock_rc.assert_not_called()
+
+
 # ── rename_tab ────────────────────────────────────────────────────────────────
 
 class TestRenameTab:

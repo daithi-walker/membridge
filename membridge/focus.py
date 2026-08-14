@@ -1,4 +1,5 @@
 """iTerm2 focus and tab management via osascript — runs on the Mac host only."""
+import glob
 import logging
 import os
 import re
@@ -8,6 +9,65 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 _CLAUDE_BIN = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
+
+_PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
+
+
+def resume_cwd(session_id: str, fallback: str | None) -> str | None:
+    """Return the directory `claude --resume <session_id>` must be launched from.
+
+    Claude Code stores a session's transcript at
+    ~/.claude/projects/<encoded-cwd>/<session_id>.jsonl, and `--resume` only finds
+    it when the *current* cwd maps to that same folder. So the correct target is
+    whatever real directory the transcript's folder encodes — NOT the DB cwd, which
+    a heartbeat may have captured mid-session as the cwd moved (worktrees, cd).
+
+    The folder encoding is lossy (both '/' and '.' collapse to '-'), so we can't
+    reverse it by string substitution; we walk the filesystem to find the real path
+    that re-encodes to the folder name. Falls back to `fallback` (the DB cwd) when
+    the transcript is gone or the folder can't be resolved on disk — i.e. exactly
+    the previous behavior.
+    """
+    paths = glob.glob(os.path.join(_PROJECTS_DIR, "*", f"{session_id}.jsonl"))
+    if not paths:
+        return fallback
+    path = max(paths, key=os.path.getmtime)
+    folder = os.path.basename(os.path.dirname(path))
+    decoded = _decode_project_folder(folder)
+    return decoded if decoded else fallback
+
+
+def _decode_project_folder(folder: str) -> str | None:
+    """Reverse a ~/.claude/projects folder name to a real absolute directory.
+
+    The name is the launch cwd with every '/' and '.' replaced by '-', which is
+    lossy. We resolve the ambiguity by walking the filesystem: at each path
+    component we accept any existing child directory whose name re-encodes to a
+    prefix of what's left. Returns the first fully-resolved existing path, or None.
+    """
+    if not folder.startswith("-"):
+        return None
+    stack = [("/", folder[1:])]  # leading '-' is the root '/'
+    while stack:
+        base, rem = stack.pop()
+        if rem == "":
+            return base
+        try:
+            children = os.listdir(base)
+        except OSError:
+            continue
+        # Longest names first so multi-token components (e.g. "cro-data-contracts")
+        # win over shorter prefixes, keeping the walk deterministic.
+        for child in sorted(children, key=len, reverse=True):
+            nxt = os.path.join(base, child)
+            if not os.path.isdir(nxt):
+                continue
+            enc = child.replace(".", "-")
+            if rem == enc:
+                stack.append((nxt, ""))
+            elif rem.startswith(enc + "-"):
+                stack.append((nxt, rem[len(enc) + 1:]))
+    return None
 
 _FOCUS_BY_UUID = """
 tell application "iTerm2"
@@ -186,6 +246,11 @@ def focus_session(
             script = _FOCUS_BY_TTY.format(tty=tty.replace('"', '\\"'))
             if _run(script) == "focused":
                 return "focused"
+
+    # Reached only when live focus (UUID/TTY) failed — we're opening a fresh tab
+    # to `--resume`. Resolve the cwd the transcript actually lives under, since the
+    # DB cwd can be stale for worktree / multi-cd sessions (see resume_cwd).
+    cwd = resume_cwd(session_id, cwd) or cwd
 
     try:
         safe_cwd = _safe_path(cwd)
