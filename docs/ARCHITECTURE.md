@@ -64,6 +64,9 @@ Runs natively on the host via launchd (`com.membridge`), port 7842. Handles all 
 ### Focus module (`membridge/focus.py`)
 All osascript and iTerm2 logic: focus a tab by UUID or TTY, rename a tab, check PID liveness, list sessions. Called directly from `server.py` as a Python import.
 
+### sesh integration (`membridge/sesh.py`)
+Optional, opt-in per project. A thin wrapper around the external [`sesh`](https://github.com/m-gharibi/sesh) CLI: MemBridge orchestrates, sesh owns storage (a per-project `.sesh/` archive) and full-text search. Every call degrades to a no-op if the binary is missing or the project has not been `sesh init`'d, so it costs nothing for sessions that never enable it (`_run` closes stdin and sets a timeout so it can never block on a terminal). The Stop hook fires `snapshot()` off the event loop. REST surface, all keyed off the session's `cwd`: `GET /api/sessions/{id}/sesh` (availability + opt-in status), `POST .../sesh/init`, `POST .../sesh/snapshot`, `GET .../sesh/snapshots` (raw sesh log), and `GET /api/sesh/find` (full-text search, per-project when a `cwd` is enabled, else global). No SQLite table - sesh is the source of truth for its own data.
+
 ### SQLite (`membridge/db.py`)
 Tables: `sessions`, `session_summaries`, `session_links`, `activity_events`, `settings`. Migrations applied on startup via `_MIGRATIONS` list (idempotent). DB lives at `~/.membridge/sessions.db`.
 

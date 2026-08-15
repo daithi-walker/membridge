@@ -41,6 +41,7 @@ All hooks run in the background (`curl ... &`) - Claude Code is never blocked.
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) - Python package manager
 - An Anthropic API key (for auto-summary via Claude Haiku)
+- [sesh](https://github.com/m-gharibi/sesh) *(optional)* - external CLI for per-project session backups. Not bundled and not required: MemBridge degrades every sesh operation to a no-op if the binary is absent. Install it and `sesh init` a project to opt that project in.
 
 ## Setup
 
