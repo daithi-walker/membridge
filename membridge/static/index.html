@@ -873,6 +873,43 @@
     .link-search-item-meta { font-size: 10px; color: var(--text-muted); font-family: monospace; margin-top: 1px; }
     .link-indicator { font-size: 13px; opacity: 0.75; cursor: default; }
 
+    /* ── Session tags (time-tracking labels) ── */
+    .tags-input-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .tags-chips-row { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-radius: 3px;
+      padding: 2px 5px 2px 8px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .tag-chip-name { cursor: default; font-weight: 600; }
+    .tag-chip-weight {
+      font-family: monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .tag-chip-weight:hover { color: var(--text); }
+    button.tag-chip-x {
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1;
+      border: none;
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+    button.tag-chip-x:hover { color: var(--text); border: none; background: transparent; }
+    .tag-indicator { font-size: 11px; opacity: 0.85; cursor: default; margin-left: 4px; }
+
     /* ── Mobile card view ── */
     #cards-view {
       display: none;
@@ -1168,6 +1205,17 @@
         <div>
           <div class="panel-section-title">Description <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(click to edit)</span></div>
           <div class="panel-summary-text" id="panel-summary" title="Click to edit"></div>
+        </div>
+
+        <div>
+          <div class="panel-section-title">Tags <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(time-tracking labels; Enter to add, click ×N to weight)</span></div>
+          <div class="tags-input-wrap">
+            <div class="tags-chips-row" id="panel-tags-chips"></div>
+            <div class="link-search-wrap">
+              <input class="link-search-input" id="panel-tag-input" placeholder="+ add tag…" autocomplete="off">
+              <div class="link-search-dropdown" id="panel-tag-dropdown" style="display:none"></div>
+            </div>
+          </div>
         </div>
 
         <div>

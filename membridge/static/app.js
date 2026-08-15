@@ -585,6 +585,13 @@ function buildRow(s) {
     linkInd.title = `${s.linked_session_ids.length} linked session${s.linked_session_ids.length > 1 ? 's' : ''}`;
     linksTd.appendChild(linkInd);
   }
+  if (s.tags && s.tags.length) {
+    const tagInd = document.createElement('span');
+    tagInd.className = 'tag-indicator';
+    tagInd.textContent = '🏷';
+    tagInd.title = s.tags.map(t => t.weight === 1 ? t.tag : `${t.tag} ×${formatWeight(t.weight)}`).join(', ');
+    linksTd.appendChild(tagInd);
+  }
   tr.appendChild(linksTd);
 
   tr.addEventListener('click', () => openPanel(s, true));
@@ -818,6 +825,7 @@ function openPanel(s, scrollIntoView) {
 
   initTicketsInput(s);
   initLinksSection(s);
+  initTagsSection(s);
 
   panelOverlay.classList.add('open');
 }
@@ -1147,6 +1155,145 @@ async function initLinksSection(s) {
   searchInput.onfocus = () => { if (searchInput.value.trim()) searchInput.oninput(); };
 
   await loadLinks();
+}
+
+// Cache of all distinct tags for autocomplete; invalidated when a new tag is created.
+let _allTagsCache = null;
+async function fetchAllTags() {
+  if (_allTagsCache) return _allTagsCache;
+  try {
+    const res = await fetch('/api/tags');
+    _allTagsCache = await res.json();
+  } catch (_) {
+    _allTagsCache = [];
+  }
+  return _allTagsCache;
+}
+
+function formatWeight(w) {
+  const n = Number(w);
+  return Number.isInteger(n) ? String(n) : String(parseFloat(n.toFixed(2)));
+}
+
+function initTagsSection(s) {
+  const chipsRow = document.getElementById('panel-tags-chips');
+  const input = document.getElementById('panel-tag-input');
+  const dropdown = document.getElementById('panel-tag-dropdown');
+
+  chipsRow.innerHTML = '';
+  input.value = '';
+  dropdown.style.display = 'none';
+
+  let tags = Array.isArray(s.tags) ? s.tags.map(t => ({ ...t })) : [];
+
+  function syncRow() {
+    s.tags = tags;
+    const idx = sessions.findIndex(r => r.session_id === s.session_id);
+    if (idx !== -1) sessions[idx].tags = tags;
+  }
+
+  async function removeTag(tag) {
+    try {
+      await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}/tags?tag=${encodeURIComponent(tag)}`, { method: 'DELETE' });
+      tags = tags.filter(t => t.tag !== tag);
+      renderChips();
+      syncRow();
+    } catch (_) { showToast('Failed to remove tag'); }
+  }
+
+  async function addOrUpdate(tag, weight) {
+    tag = (tag || '').trim();
+    if (!tag) return;
+    try {
+      const res = await fetch(`/api/sessions/${encodeURIComponent(s.session_id)}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag, weight }),
+      });
+      if (!res.ok) { showToast('Failed to add tag'); return; }
+      const existing = tags.find(t => t.tag === tag);
+      if (existing) existing.weight = weight;
+      else tags.push({ tag, weight });
+      _allTagsCache = null; // a brand-new tag should appear in future autocompletes
+      renderChips();
+      syncRow();
+    } catch (_) { showToast('Failed to add tag'); }
+  }
+
+  function makeTagChip(t) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+
+    const name = document.createElement('span');
+    name.className = 'tag-chip-name';
+    name.textContent = t.tag;
+    chip.appendChild(name);
+
+    const w = document.createElement('span');
+    w.className = 'tag-chip-weight';
+    w.textContent = '×' + formatWeight(t.weight);
+    w.title = "Click to set weight (splits this session's time across its tags)";
+    w.onclick = () => {
+      const val = prompt(`Weight for "${t.tag}" (default 1):`, formatWeight(t.weight));
+      if (val === null) return;
+      const num = parseFloat(val);
+      if (!isFinite(num) || num < 0) { showToast('Weight must be a non-negative number'); return; }
+      addOrUpdate(t.tag, num);
+    };
+    chip.appendChild(w);
+
+    const x = document.createElement('button');
+    x.className = 'tag-chip-x';
+    x.textContent = '×';
+    x.title = 'Remove tag';
+    x.onclick = (e) => { e.stopPropagation(); removeTag(t.tag); };
+    chip.appendChild(x);
+    return chip;
+  }
+
+  function renderChips() {
+    chipsRow.innerHTML = '';
+    for (const t of tags) chipsRow.appendChild(makeTagChip(t));
+  }
+
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = input.value.trim();
+      if (val) { addOrUpdate(val, 1.0); input.value = ''; dropdown.style.display = 'none'; }
+    } else if (e.key === 'Backspace' && !input.value && tags.length) {
+      removeTag(tags[tags.length - 1].tag);
+    }
+  };
+
+  input.oninput = async () => {
+    const q = input.value.trim().toLowerCase();
+    dropdown.style.display = 'none';
+    dropdown.innerHTML = '';
+    if (!q) return;
+    const all = await fetchAllTags();
+    const have = new Set(tags.map(t => t.tag));
+    const candidates = all.filter(t => t.toLowerCase().includes(q) && !have.has(t)).slice(0, 6);
+    if (!candidates.length) return;
+    for (const t of candidates) {
+      const item = document.createElement('div');
+      item.className = 'link-search-item';
+      item.innerHTML = `<div class="link-search-item-name">${esc(t)}</div>`;
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        input.value = '';
+        dropdown.style.display = 'none';
+        addOrUpdate(t, 1.0);
+      });
+      dropdown.appendChild(item);
+    }
+    dropdown.style.display = 'block';
+  };
+
+  input.onblur = () => { setTimeout(() => { dropdown.style.display = 'none'; }, 150); };
+  input.onfocus = () => { if (input.value.trim()) input.oninput(); };
+
+  renderChips();
 }
 
 function closePanel() {

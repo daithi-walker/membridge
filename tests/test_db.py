@@ -349,3 +349,121 @@ def test_cascade_delete_removes_stop_events():
     db.record_stop("aaa", "end_turn")
     db.delete_session("aaa")
     assert db.get_activity_events(kind="stop") == []
+
+
+# ── session tags ────────────────────────────────────────────────────────────
+
+def _mk(session_id="aaa", cwd="/tmp/proj"):
+    db.upsert_heartbeat(session_id=session_id, cwd=cwd, branch=None, iterm_tab=None)
+
+
+def test_add_and_get_session_tag():
+    _mk()
+    assert db.add_session_tag("aaa", "client-x") is True
+    tags = db.get_session_tags("aaa")
+    assert tags == [{"tag": "client-x", "weight": 1.0}]
+
+
+def test_add_session_tag_blank_rejected():
+    _mk()
+    assert db.add_session_tag("aaa", "   ") is False
+    assert db.get_session_tags("aaa") == []
+
+
+def test_add_session_tag_trims_whitespace():
+    _mk()
+    db.add_session_tag("aaa", "  client-x  ")
+    assert db.get_session_tags("aaa") == [{"tag": "client-x", "weight": 1.0}]
+
+
+def test_add_session_tag_reweights_on_conflict():
+    _mk()
+    db.add_session_tag("aaa", "client-x", 1.0)
+    db.add_session_tag("aaa", "client-x", 0.25)
+    assert db.get_session_tags("aaa") == [{"tag": "client-x", "weight": 0.25}]
+
+
+def test_remove_session_tag():
+    _mk()
+    db.add_session_tag("aaa", "client-x")
+    assert db.remove_session_tag("aaa", "client-x") is True
+    assert db.get_session_tags("aaa") == []
+
+
+def test_remove_session_tag_nonexistent():
+    _mk()
+    assert db.remove_session_tag("aaa", "nope") is False
+
+
+def test_set_session_tags_replaces_set():
+    _mk()
+    db.add_session_tag("aaa", "old")
+    result = db.set_session_tags("aaa", [
+        {"tag": "client-x", "weight": 0.75},
+        {"tag": "client-y", "weight": 0.25},
+    ])
+    assert result == [
+        {"tag": "client-x", "weight": 0.75},
+        {"tag": "client-y", "weight": 0.25},
+    ]
+    # 'old' is gone; only the new set remains
+    got = {t["tag"] for t in db.get_session_tags("aaa")}
+    assert got == {"client-x", "client-y"}
+
+
+def test_set_session_tags_accepts_mapping_and_drops_blanks():
+    _mk()
+    db.set_session_tags("aaa", {"client-x": 1.0, "  ": 2.0, "client-y": 0.5})
+    got = {t["tag"] for t in db.get_session_tags("aaa")}
+    assert got == {"client-x", "client-y"}
+
+
+def test_set_session_tags_bad_weight_falls_back_to_one():
+    _mk()
+    db.set_session_tags("aaa", [{"tag": "client-x", "weight": "notanumber"}])
+    assert db.get_session_tags("aaa") == [{"tag": "client-x", "weight": 1.0}]
+
+
+def test_set_session_tags_empty_clears():
+    _mk()
+    db.add_session_tag("aaa", "client-x")
+    db.set_session_tags("aaa", [])
+    assert db.get_session_tags("aaa") == []
+
+
+def test_list_all_tags_orders_by_usage():
+    _mk("aaa")
+    _mk("bbb", cwd="/tmp/proj2")
+    db.add_session_tag("aaa", "common")
+    db.add_session_tag("bbb", "common")
+    db.add_session_tag("aaa", "rare")
+    assert db.list_all_tags() == ["common", "rare"]
+
+
+def test_get_tags_for_sessions_bulk():
+    _mk("aaa")
+    _mk("bbb", cwd="/tmp/proj2")
+    db.add_session_tag("aaa", "client-x")
+    db.add_session_tag("bbb", "client-y")
+    got = db.get_tags_for_sessions(["aaa", "bbb", "ccc"])
+    assert got["aaa"] == [{"tag": "client-x", "weight": 1.0}]
+    assert got["bbb"] == [{"tag": "client-y", "weight": 1.0}]
+    assert "ccc" not in got
+
+
+def test_get_tags_for_sessions_empty_input():
+    assert db.get_tags_for_sessions([]) == {}
+
+
+def test_cascade_delete_removes_tags():
+    _mk()
+    db.add_session_tag("aaa", "client-x")
+    db.delete_session("aaa")
+    assert db.get_tags_for_sessions(["aaa"]) == {}
+
+
+def test_list_sessions_includes_tags():
+    _mk()
+    db.add_session_tag("aaa", "client-x", 0.5)
+    rows = {r["session_id"]: r for r in db.list_sessions()}
+    assert rows["aaa"]["tags"] == [{"tag": "client-x", "weight": 0.5}]

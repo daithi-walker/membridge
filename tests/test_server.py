@@ -511,3 +511,66 @@ def test_sessions_list_includes_linked_ids(client):
     result = {s["session_id"]: s for s in client.get("/api/sessions").json()}
     assert "s2" in result["s1"]["linked_session_ids"]
     assert "s1" in result["s2"]["linked_session_ids"]
+
+
+# ── session tags ─────────────────────────────────────────────────────────────
+
+def test_add_and_get_tags(client):
+    _hb("s1")
+    res = client.post("/api/sessions/s1/tags", json={"tag": "client-x", "weight": 0.5})
+    assert res.status_code == 200
+    got = client.get("/api/sessions/s1/tags").json()
+    assert got == [{"tag": "client-x", "weight": 0.5}]
+
+
+def test_add_tag_blank_rejected(client):
+    _hb("s1")
+    res = client.post("/api/sessions/s1/tags", json={"tag": "   "})
+    assert res.status_code == 400
+
+
+def test_add_tag_unknown_session_404(client):
+    res = client.post("/api/sessions/nope/tags", json={"tag": "client-x"})
+    assert res.status_code == 404
+
+
+def test_put_tags_replaces_set(client):
+    _hb("s1")
+    client.post("/api/sessions/s1/tags", json={"tag": "old"})
+    res = client.put("/api/sessions/s1/tags", json={"tags": [
+        {"tag": "client-x", "weight": 0.75},
+        {"tag": "client-y", "weight": 0.25},
+    ]})
+    assert res.status_code == 200
+    got = {t["tag"] for t in client.get("/api/sessions/s1/tags").json()}
+    assert got == {"client-x", "client-y"}
+
+
+def test_delete_tag(client):
+    _hb("s1")
+    client.post("/api/sessions/s1/tags", json={"tag": "client x"})  # space in tag
+    res = client.delete("/api/sessions/s1/tags", params={"tag": "client x"})
+    assert res.status_code == 200
+    assert client.get("/api/sessions/s1/tags").json() == []
+
+
+def test_delete_tag_nonexistent_404(client):
+    _hb("s1")
+    res = client.delete("/api/sessions/s1/tags", params={"tag": "nope"})
+    assert res.status_code == 404
+
+
+def test_list_all_tags_endpoint(client):
+    _hb("s1")
+    _hb("s2")
+    client.post("/api/sessions/s1/tags", json={"tag": "common"})
+    client.post("/api/sessions/s2/tags", json={"tag": "common"})
+    client.post("/api/sessions/s1/tags", json={"tag": "rare"})
+    assert client.get("/api/tags").json() == ["common", "rare"]
+
+
+def test_sessions_list_includes_tags(client):
+    _hb("s1")
+    client.post("/api/sessions/s1/tags", json={"tag": "client-x", "weight": 0.5})
+    result = {s["session_id"]: s for s in client.get("/api/sessions").json()}
+    assert result["s1"]["tags"] == [{"tag": "client-x", "weight": 0.5}]
