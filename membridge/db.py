@@ -38,6 +38,11 @@ class LinkedSession(TypedDict):
     description: str | None
     last_seen: str
 
+
+class SessionTag(TypedDict):
+    tag: str
+    weight: float
+
 DB_PATH = Path(os.getenv("MEMBRIDGE_DB", Path.home() / ".membridge" / "sessions.db"))
 
 _CREATE_SQL = """
@@ -111,6 +116,26 @@ _ACTIVITY_EVENTS_KIND_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_activity_events_kind_ts ON activity_events (kind, ts);
 """
 
+# Domain-neutral: a session carries zero or more free-text `tag`s, each with a
+# `weight` used to split that session's active time across its tags. MemBridge
+# knows nothing about what a tag means — a downstream consumer (e.g. a timesheet
+# tool) owns any mapping from tag -> external code. Never put consumer vocabulary
+# (project codes, client names, timesheet fields) in this table.
+_TAGS_SQL = """
+CREATE TABLE IF NOT EXISTS session_tags (
+    session_id  TEXT NOT NULL,
+    tag         TEXT NOT NULL,
+    weight      REAL NOT NULL DEFAULT 1.0,
+    created_at  TEXT NOT NULL,
+    PRIMARY KEY (session_id, tag),
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+);
+"""
+
+_TAGS_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_session_tags_tag ON session_tags (tag);
+"""
+
 
 def _migrate_legacy_event_tables(conn: sqlite3.Connection) -> None:
     """One-time forward migration from the short-lived heartbeat_events/stop_events
@@ -172,6 +197,8 @@ def init_db() -> None:
         conn.execute(_ACTIVITY_EVENTS_SQL)
         conn.execute(_ACTIVITY_EVENTS_INDEX_SQL)
         conn.execute(_ACTIVITY_EVENTS_KIND_INDEX_SQL)
+        conn.execute(_TAGS_SQL)
+        conn.execute(_TAGS_INDEX_SQL)
         _migrate_legacy_event_tables(conn)
         for sql in _MIGRATIONS:
             try:
@@ -474,6 +501,99 @@ def get_links(session_id: str) -> list[LinkedSession]:
     return [cast(LinkedSession, dict(r)) for r in rows]
 
 
+def get_session_tags(session_id: str) -> list[SessionTag]:
+    """Tags on a session, alphabetical. Each carries a weight for time-splitting."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT tag, weight FROM session_tags WHERE session_id = ? ORDER BY tag",
+            (session_id,),
+        ).fetchall()
+    return [cast(SessionTag, {"tag": r["tag"], "weight": r["weight"]}) for r in rows]
+
+
+def add_session_tag(session_id: str, tag: str, weight: float = 1.0) -> bool:
+    """Add or re-weight one tag on a session. Returns False if the tag is blank."""
+    tag = tag.strip()
+    if not tag:
+        return False
+    with _conn() as conn:
+        conn.execute(
+            """INSERT INTO session_tags (session_id, tag, weight, created_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT (session_id, tag) DO UPDATE SET weight = excluded.weight""",
+            (session_id, tag, float(weight), _now()),
+        )
+    return True
+
+
+def remove_session_tag(session_id: str, tag: str) -> bool:
+    """Remove one tag from a session. Returns True if a row was deleted."""
+    with _conn() as conn:
+        cursor = conn.execute(
+            "DELETE FROM session_tags WHERE session_id = ? AND tag = ?",
+            (session_id, tag.strip()),
+        )
+        return cursor.rowcount > 0
+
+
+def set_session_tags(session_id: str, tags: list[dict] | dict) -> list[SessionTag]:
+    """Replace a session's entire tag set (the retroactive-edit primitive the UI uses).
+
+    `tags` is either a list of ``{"tag", "weight"}`` dicts or a ``{tag: weight}``
+    mapping. Blank tags are dropped; a repeated tag keeps its last weight; a
+    non-numeric weight falls back to 1.0. Returns the resulting tag set."""
+    items = tags.items() if isinstance(tags, dict) else (
+        (t.get("tag", ""), t.get("weight", 1.0)) for t in tags
+    )
+    desired: dict[str, float] = {}
+    for tag, weight in items:
+        tag = (tag or "").strip()
+        if not tag:
+            continue
+        try:
+            desired[tag] = float(weight)
+        except (TypeError, ValueError):
+            desired[tag] = 1.0
+    now = _now()
+    with _conn() as conn:
+        conn.execute("DELETE FROM session_tags WHERE session_id = ?", (session_id,))
+        for tag, weight in desired.items():
+            conn.execute(
+                """INSERT INTO session_tags (session_id, tag, weight, created_at)
+                   VALUES (?, ?, ?, ?)""",
+                (session_id, tag, weight, now),
+            )
+    return [cast(SessionTag, {"tag": t, "weight": w}) for t, w in desired.items()]
+
+
+def list_all_tags() -> list[str]:
+    """Distinct tags across all sessions, most-used first (for autocomplete)."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT tag, COUNT(*) AS n FROM session_tags GROUP BY tag ORDER BY n DESC, tag ASC"
+        ).fetchall()
+    return [r["tag"] for r in rows]
+
+
+def get_tags_for_sessions(session_ids: list[str]) -> dict[str, list[SessionTag]]:
+    """Bulk-fetch tags for many sessions -> {session_id: [SessionTag, ...]}."""
+    if not session_ids:
+        return {}
+    placeholders = ",".join("?" * len(session_ids))
+    with _conn() as conn:
+        rows = conn.execute(
+            f"""SELECT session_id, tag, weight FROM session_tags
+                WHERE session_id IN ({placeholders}) ORDER BY tag""",
+            session_ids,
+        ).fetchall()
+    out: dict[str, list[SessionTag]] = {}
+    for r in rows:
+        out.setdefault(r["session_id"], []).append(
+            cast(SessionTag, {"tag": r["tag"], "weight": r["weight"]})
+        )
+    return out
+
+
 def get_session(session_id: str) -> SessionRow | None:
     with _conn() as conn:
         row = conn.execute(
@@ -490,16 +610,26 @@ def list_sessions(include_stale: bool = True) -> list[SessionRow]:
         link_rows = conn.execute(
             "SELECT session_a, session_b FROM session_links"
         ).fetchall()
+        tag_rows = conn.execute(
+            "SELECT session_id, tag, weight FROM session_tags ORDER BY tag"
+        ).fetchall()
     # Build a map: session_id -> [linked_ids]
     link_map: dict[str, list[str]] = {}
     for lr in link_rows:
         a, b = lr["session_a"], lr["session_b"]
         link_map.setdefault(a, []).append(b)
         link_map.setdefault(b, []).append(a)
+    # Build a map: session_id -> [SessionTag]
+    tag_map: dict[str, list[SessionTag]] = {}
+    for tr in tag_rows:
+        tag_map.setdefault(tr["session_id"], []).append(
+            cast(SessionTag, {"tag": tr["tag"], "weight": tr["weight"]})
+        )
     result = []
     for r in rows:
         row = SessionRow(**dict(r))
         row["linked_session_ids"] = link_map.get(r["session_id"], [])  # type: ignore[typeddict-unknown-key]
+        row["tags"] = tag_map.get(r["session_id"], [])  # type: ignore[typeddict-unknown-key]
         result.append(row)
     return result
 

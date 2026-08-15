@@ -446,6 +446,15 @@ class PushSummaryPayload(BaseModel):
     source: str = "skill"
 
 
+class TagItem(BaseModel):
+    tag: str
+    weight: float = 1.0
+
+
+class SetTagsPayload(BaseModel):
+    tags: list[TagItem] = []
+
+
 @app.get("/api/sessions/{session_id}/links")
 def get_links(session_id: str) -> list[dict]:
     if not db.get_session(session_id):
@@ -477,6 +486,52 @@ def remove_link(session_id: str, target_id: str) -> dict:
     removed = db.remove_link(session_id, target_id)
     if not removed:
         raise HTTPException(status_code=404, detail="Link not found")
+    _broadcast("refresh")
+    return {"ok": True}
+
+
+# ── session tags (domain-neutral labels + weights) ──────────────────────────
+
+@app.get("/api/tags")
+def list_tags() -> list[str]:
+    """All distinct tags in use, most-used first (dashboard autocomplete)."""
+    return db.list_all_tags()
+
+
+@app.get("/api/sessions/{session_id}/tags")
+def get_tags(session_id: str) -> list[dict]:
+    if not db.get_session(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return [dict(t) for t in db.get_session_tags(session_id)]
+
+
+@app.put("/api/sessions/{session_id}/tags")
+def set_tags(session_id: str, payload: SetTagsPayload) -> list[dict]:
+    """Replace the session's entire tag set (retroactive edit)."""
+    if not db.get_session(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    result = db.set_session_tags(session_id, [t.model_dump() for t in payload.tags])
+    _broadcast("refresh")
+    return [dict(t) for t in result]
+
+
+@app.post("/api/sessions/{session_id}/tags")
+def add_tag(session_id: str, payload: TagItem) -> dict:
+    if not db.get_session(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not db.add_session_tag(session_id, payload.tag, payload.weight):
+        raise HTTPException(status_code=400, detail="tag is required")
+    _broadcast("refresh")
+    return {"ok": True}
+
+
+@app.delete("/api/sessions/{session_id}/tags")
+def remove_tag(session_id: str, tag: str) -> dict:
+    """Remove one tag (passed as a `?tag=` query param, since tags may contain spaces)."""
+    if not db.get_session(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not db.remove_session_tag(session_id, tag):
+        raise HTTPException(status_code=404, detail="Tag not found")
     _broadcast("refresh")
     return {"ok": True}
 
