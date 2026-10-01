@@ -326,6 +326,12 @@ def test_security_headers_present(client):
     assert res.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
 
 
+def test_static_files_force_revalidation(client):
+    res = client.get("/static/app.js")
+    assert res.status_code == 200
+    assert res.headers.get("cache-control") == "no-cache"
+
+
 # ── /focus route ──────────────────────────────────────────────────────────────
 # CHANGELOG: "4-state focus button: focused / opened / idle / stale — fires POST /focus"
 

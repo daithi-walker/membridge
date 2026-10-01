@@ -132,11 +132,26 @@ document.getElementById('show-select-none').addEventListener('click', () => {
 const projFilterBtn = document.getElementById('project-filter-btn');
 const projFilterDropdown = document.getElementById('project-filter-dropdown');
 const projCheckboxes = document.getElementById('proj-checkboxes');
+const projSearch = document.getElementById('proj-search');
+const projNoMatch = document.getElementById('proj-no-match');
 projFilterBtn.addEventListener('click', e => {
   e.stopPropagation();
   const open = projFilterDropdown.style.display !== 'none';
-  projFilterDropdown.style.display = open ? 'none' : 'block';
+  projFilterDropdown.style.display = open ? 'none' : 'flex';
+  if (!open) projSearch.focus();
 });
+
+function applyProjSearch() {
+  const q = projSearch.value.trim().toLowerCase();
+  let shown = 0;
+  projCheckboxes.querySelectorAll('.proj-check-label').forEach(label => {
+    const match = !q || label.dataset.project.toLowerCase().includes(q);
+    label.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  projNoMatch.style.display = shown ? 'none' : 'block';
+}
+projSearch.addEventListener('input', applyProjSearch);
 document.addEventListener('click', () => {
   projFilterDropdown.style.display = 'none';
   showFilterDropdown.style.display = 'none';
@@ -299,10 +314,13 @@ async function fetchSessions() {
 
 function updateProjectFilter(all) {
   const projects = [...new Set(all.map(s => s.project_name))].sort();
+  // Rebuilt on every refresh: keep the scroll position so the open list doesn't jump
+  const scrollTop = projCheckboxes.scrollTop;
   projCheckboxes.innerHTML = '';
   for (const p of projects) {
     const label = document.createElement('label');
     label.className = 'proj-check-label';
+    label.dataset.project = p;
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.value = p;
@@ -325,6 +343,8 @@ function updateProjectFilter(all) {
     label.appendChild(document.createTextNode(p));
     projCheckboxes.appendChild(label);
   }
+  applyProjSearch();
+  projCheckboxes.scrollTop = scrollTop;
   saveProjectFilter();
 }
 

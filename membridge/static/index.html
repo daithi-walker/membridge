@@ -188,6 +188,26 @@
     }
     .filter-dropdown-actions button:hover { color: var(--text); border-color: var(--accent); }
 
+    #project-filter-dropdown {
+      display: flex;
+      flex-direction: column;
+      max-height: min(70vh, 480px);
+      min-width: 220px;
+    }
+    #proj-search {
+      margin: 6px 10px;
+      padding: 3px 6px;
+      font-size: 12px;
+      font-family: inherit;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+    }
+    #proj-search:focus { outline: none; border-color: var(--accent); }
+    #proj-checkboxes { overflow-y: auto; flex: 1 1 auto; }
+    #proj-no-match { padding: 5px 10px; font-size: 12px; color: var(--text-muted); }
+
     .proj-check-label {
       display: flex;
       align-items: center;
@@ -1100,7 +1120,9 @@
           <button id="proj-select-all">All</button>
           <button id="proj-select-none">None</button>
         </div>
+        <input id="proj-search" type="search" placeholder="Filter projects…" autocomplete="off">
         <div id="proj-checkboxes"></div>
+        <div id="proj-no-match" style="display:none">No matching projects</div>
       </div>
     </div>
     <button id="pin-order-btn" class="filter-btn" data-tooltip="Pin row order — prevents sessions reshuffling while you work">⚓</button>

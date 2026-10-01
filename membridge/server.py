@@ -64,6 +64,10 @@ async def security_headers(request: Request, call_next) -> Response:
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Force revalidation (cheap 304 via ETag) so edited static files are live on refresh;
+    # without this, browsers heuristically cache app.js and pair stale JS with fresh HTML.
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
     return response
 
 
