@@ -17,6 +17,7 @@ When you run Claude Code across many iTerm2 tabs over days or weeks, you lose tr
 - **Session backups (sesh)** - opt in per project to snapshot a session's transcripts on every Stop via the [`sesh`](https://github.com/m-gharibi/sesh) CLI; resume then prefers `sesh resume`. MemBridge owns metadata; sesh owns content preservation and full-text search across saved sessions
 - **Slash commands** - summarise, rename, note, link, and load context from inside Claude
 - **Notes field** - per-session work log, auto-saved
+- **Cost estimates** - per-session and per-turn cost from the token usage Claude Code records in each transcript (subagents included), priced at list price from `membridge/pricing.toml`. Billed spend (Vertex, Bedrock, API key) is shown plainly; subscription usage shows as an italic API-equivalent figure
 - **Backfill** - import existing session history from `~/.claude/projects/`
 - **Dark / light theme**, persisted in localStorage
 
@@ -26,7 +27,7 @@ When you run Claude Code across many iTerm2 tabs over days or weeks, you lose tr
 Claude Code (any session, any project)
   UserPromptSubmit hook  →  POST localhost:7842/api/heartbeat   registers session, increments prompt count
   PreToolUse hook        →  POST localhost:7842/api/touch        keeps last_seen fresh during long responses
-  Stop hook              →  POST localhost:7842/api/stop         triggers auto-summary + sesh snapshot (if opted in)
+  Stop hook              →  POST localhost:7842/api/stop         auto-summary, usage/cost ingest, sesh snapshot (if opted in)
   Notification hook      →  POST localhost:7842/api/notification fires macOS alert when Claude needs input
 
 localhost:7842  FastAPI + SQLite   runs natively via launchd (com.membridge)
@@ -71,7 +72,9 @@ Sessions are colour-coded by status:
 | idle   | Last seen 5 min - 2 hours, or PID still alive |
 | stale  | Last seen > 2 hours and PID is dead |
 
-Click any row to open the side panel: full metadata, editable summary, notes, and linked sessions.
+Click any row to open the side panel: full metadata, usage and cost (with a per-turn breakdown), editable summary, notes, and linked sessions.
+
+The **Cost** column is an estimate at list price from transcript token counts, for transcripts on this machine only. It excludes negotiated discounts and regional Vertex pricing (~10% above `global`). Hover a cell for call count and list vs billed.
 
 ## Slash commands
 
@@ -102,6 +105,15 @@ Thresholds (active/idle/stale) and the dashboard refresh interval are configurab
 uv run python scripts/backfill.py --dry-run --days 30   # preview
 uv run python scripts/backfill.py --days 30              # import
 ```
+
+Load token usage and cost for existing transcripts (safe to re-run; re-run after editing `membridge/pricing.toml` to reprice):
+
+```bash
+uv run python scripts/backfill_usage.py                         # Vertex/Bedrock machine
+uv run python scripts/backfill_usage.py --auth-mode subscription  # direct Anthropic history: subscription (or api)
+```
+
+New sessions record their own auth mode via the heartbeat hook; `--auth-mode` only classifies older history. Vertex calls are recognised from their message ids.
 
 ## Development
 

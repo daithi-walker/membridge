@@ -7,20 +7,20 @@ Local Claude Code session tracker. See README.md for full setup.
 ```
 membridge/          FastAPI app (Python)
   server.py         API routes + heartbeat/stop handlers
-  db.py             SQLite helpers (sessions + session_summaries tables)
+  db.py             SQLite helpers (sessions, summaries, activity_events, tags, api_calls)
   summariser.py     Anthropic API summary generation
   focus.py          iTerm2 osascript helpers (focus, rename, pid, list)
   usage.py          Transcript -> api_calls ingest (per-call token usage, subagents)
-  costs.py          Price api_calls from pricing.toml; per-turn/session/day rollups
-  pricing.toml      Claude list prices per model + endpoint multipliers (edit to reprice)
+  costs.py          Price API calls from pricing.toml; per-turn + per-session rollups
+  pricing.toml      Claude list prices per model (edit, restart, re-run backfill_usage.py)
   static/
     index.html      Dashboard HTML + CSS
     app.js          Dashboard JS (vanilla, no build step)
 
 hooks/
-  claude_ui_heartbeat.sh   UserPromptSubmit hook — POST /api/heartbeat
+  claude_ui_heartbeat.sh   UserPromptSubmit hook — POST /api/heartbeat (incl. auth_mode)
   claude_ui_tool_use.sh    PreToolUse hook — POST /api/touch
-  claude_ui_stop.sh        Stop hook — POST /api/stop (triggers auto-summary)
+  claude_ui_stop.sh        Stop hook — POST /api/stop (auto-summary + usage ingest)
 
 scripts/
   run.sh            Entrypoint for launchd — starts uvicorn on port 7842
@@ -111,12 +111,15 @@ When shipping a significant change:
 - **Anthropic API** — uses `ANTHROPIC_API_KEY` for auto-summary.
 - **Auto-summary dedup** — Stop hook checks `last_auto_summary_text()` before inserting; same text is skipped even when transcript grows.
 - **session_summaries table** — append-only log; never overwrites. Auto/skill/user sources tracked separately.
+- **Cost from transcripts (ADR 014)** — on every Stop, `usage.ingest_session` re-parses the session transcript + `subagents/*.jsonl` into `api_calls`, one row per API call keyed by (message id, request id) because Claude Code repeats `usage` on every content block. Cost is list price from `pricing.toml`, set at ingest; billing class comes from `auth_mode` (`subscription` = API-equivalent, NULL = unknown, anything else = billed). Vertex calls are detected from `msg_vrtx_` ids. Estimate covers this machine's transcripts only.
 
 ## Database
 
 SQLite at `~/.membridge/sessions.db` (survives reinstalls).
 
 Key columns: `session_id`, `cwd`, `project_name`, `git_branch`, `pid`, `iterm_tab`, `iterm_session_uuid`, `first_seen`, `last_seen`, `prompt_count`, `summary`, `summary_source`, `notes`, `archived`, `starred`.
+
+`sessions.auth_mode` (vertex | bedrock | foundry | api | subscription) is set by the heartbeat hook from Claude Code's environment. `api_calls` holds per-call token counts and `cost_usd`; it has no FK to `sessions` because backfilled transcripts can predate the session row.
 
 Settings in a separate `settings` table: `active_threshold_secs`, `idle_threshold_secs`, `refresh_interval_secs`.
 
