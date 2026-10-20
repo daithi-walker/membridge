@@ -767,10 +767,24 @@ def get_api_calls(session_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+# Context size of a call: everything the model read (fresh input + cache reads +
+# cache writes). Subagent calls run in their own context, so "current context" is
+# the session's latest main-thread call.
+_CONTEXT_SQL = "input_tokens + cache_read_tokens + cache_write_5m_tokens + cache_write_1h_tokens"
+
+
 def get_usage_by_session() -> dict[str, dict]:
     """Per-session rollup for the dashboard list: call count, list-price cost, the
-    part of it actually billed, and how many calls hit a model with no price."""
+    part of it actually billed, how many calls hit a model with no price, and the
+    current context (tokens, model and time of the latest main-thread call)."""
     with _conn() as conn:
+        latest = conn.execute(
+            f"""SELECT session_id, model AS context_model, ts AS last_call_ts,
+                       {_CONTEXT_SQL} AS context_tokens
+                FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY ts DESC) AS rn
+                      FROM api_calls WHERE agent_id IS NULL)
+                WHERE rn = 1"""
+        ).fetchall()
         rows = conn.execute(
             f"""SELECT session_id,
                        COUNT(*) AS calls,
@@ -780,7 +794,10 @@ def get_usage_by_session() -> dict[str, dict]:
                        SUM(cost_usd IS NULL) AS unpriced_calls
                 FROM api_calls GROUP BY session_id"""
         ).fetchall()
-    return {r["session_id"]: dict(r) for r in rows}
+    out = {r["session_id"]: dict(r) for r in rows}
+    for r in latest:
+        out[r["session_id"]].update(dict(r))
+    return out
 
 
 def get_settings() -> dict:

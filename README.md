@@ -17,6 +17,7 @@ When you run Claude Code across many iTerm2 tabs over days or weeks, you lose tr
 - **Session backups (sesh)** - opt in per project to snapshot a session's transcripts on every Stop via the [`sesh`](https://github.com/m-gharibi/sesh) CLI; resume then prefers `sesh resume`. MemBridge owns metadata; sesh owns content preservation and full-text search across saved sessions
 - **Slash commands** - summarise, rename, note, link, and load context from inside Claude
 - **Notes field** - per-session work log, auto-saved
+- **Context meter** - current context size per session (amber > 200k, red > 500k), prompt-cache warm/cold, and what the next turn costs to re-read the context; plus a Claude Code status line showing the same
 - **Cost estimates** - per-session and per-turn cost from the token usage Claude Code records in each transcript (subagents included), priced at list price from `membridge/pricing.toml`. Billed spend (Vertex, Bedrock, API key) is shown plainly; subscription usage shows as an italic API-equivalent figure
 - **Backfill** - import existing session history from `~/.claude/projects/`
 - **Dark / light theme**, persisted in localStorage
@@ -76,6 +77,12 @@ Click any row to open the side panel: full metadata, usage and cost (with a per-
 
 The **Cost** column is an estimate at list price from transcript token counts, for transcripts on this machine only. It excludes negotiated discounts and regional Vertex pricing (~10% above `global`). Hover a cell for call count and list vs billed.
 
+The **Context** column is the size of the session's latest main-thread call. Every turn re-reads all of it, and once the prompt cache goes cold (5 minutes idle) the next turn rewrites all of it at cache-write price. Hover for warmth and next-turn cost. Big, idle contexts are the cue to `/compact` at a stopping point or `/membridge-handoff`.
+
+### Status line
+
+`install.sh` configures `hooks/membridge_statusline.py` as the Claude Code status line if you don't already have one: `Opus 5.5 · ctx 312k (31%) · cache warm · $7.26`. It reads only the JSON Claude Code passes it, so it works without the server. To use it alongside an existing status line, call the script from yours.
+
 ## Slash commands
 
 | Command | What it does |
@@ -86,6 +93,7 @@ The **Cost** column is an estimate at list price from transcript token counts, f
 | `/membridge-link` | Link the current session to another by ID prefix |
 | `/membridge-context` | Load summaries, notes, and links back into Claude |
 | `/membridge-archive` | Toggle archive to hide a session from the dashboard |
+| `/membridge-handoff` | Save a handoff summary so you can `/clear` and continue via `/membridge-context <prefix>` in a small context |
 
 ## Configuration
 

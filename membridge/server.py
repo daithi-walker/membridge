@@ -345,7 +345,8 @@ def sessions() -> list[dict]:
     result: list[dict] = []
     for row in rows:
         d = dict(row)
-        d["usage"] = usage_map.get(str(d["session_id"]))
+        u = usage_map.get(str(d["session_id"]))
+        d["usage"] = {**u, **costs.context_meter(u, now)} if u else None
         status = _compute_status(
             str(d["last_seen"]), now,
             settings["active_threshold_secs"],

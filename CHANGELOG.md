@@ -6,6 +6,9 @@ Completed work, newest first.
 
 ## Unreleased
 
+- Context meter: a Context column (current tokens, amber over 200k, red over 500k) and a panel line showing prompt-cache warmth and what the next turn costs just to re-read the context (cache read when warm, full rewrite when cold). Cold rewrites after idle gaps measured at 39-53% of Opus 5.5 main-session cost.
+- `hooks/membridge_statusline.py`: Claude Code status line with model, context size (same colour bands), cache warm/cold and session cost, built only from Claude Code's own status-line JSON. `install.sh` sets it (with `refreshInterval: 30`) only when no status line is configured.
+- `/membridge-handoff`: writes a fresh-context handoff summary (source `handoff`), then you `/clear` and `/membridge-context <prefix>` to continue cheaply instead of carrying a huge context.
 - Session cost estimates from transcript token usage. Every model API call in a session's transcript (subagents included) is stored once in a new `api_calls` table with raw token counts, model and auth mode, priced at ingest from `membridge/pricing.toml` (list prices; Vertex `global` verified equal against a GCP billing export). Ingest re-parses the transcript on every `Stop`; `scripts/backfill_usage.py` loads history and reprices after a pricing edit. The heartbeat hook now reports the session's auth mode (`vertex`/`bedrock`/`foundry`/`api`/`subscription`, never a credential) so subscription usage shows as an API-equivalent figure, not billed spend. New Cost column in the session list, a Usage section with a per-turn breakdown in the side panel, and `GET /api/sessions/{id}/usage`. See ADR 014.
 - Projects filter dropdown: capped height with a scrollable list, pinned All/None buttons, a search box, and scroll position kept across refreshes.
 - `/static/*` now served with `Cache-Control: no-cache` so edited JS/CSS is picked up on refresh instead of stale cached `app.js` running against fresh HTML.

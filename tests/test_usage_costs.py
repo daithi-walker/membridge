@@ -221,3 +221,29 @@ def test_stop_ingests_usage_and_endpoints_report_it(client, tmp_path):
     detail = client.get("/api/sessions/s1/usage").json()
     assert detail["calls"] == 1 and len(detail["turns"]) == 1
 
+
+
+# ── context meter ────────────────────────────────────────────────────────────
+
+def test_current_context_is_latest_main_thread_call_not_subagent(tmp_path):
+    main = tmp_path / "proj" / "s1.jsonl"
+    _write(main, [_row("msg_vrtx_1", ts="2026-10-20T10:00:00Z", read=100_000),
+                  _row("msg_vrtx_2", ts="2026-10-20T10:05:00Z", inp=10, read=290_000, write=10_000)])
+    _write(tmp_path / "proj" / "s1" / "subagents" / "agent-a1.jsonl",
+           [_row("msg_vrtx_3", ts="2026-10-20T10:06:00Z", agent="a1", read=5_000)])
+    usage.ingest_session("s1", str(main))
+    u = db.get_usage_by_session()["s1"]
+    assert u["context_tokens"] == 300_010
+    assert u["last_call_ts"] == "2026-10-20T10:05:00+00:00"
+
+
+def test_context_meter_warm_then_cold():
+    from datetime import UTC, datetime
+    u = {"context_tokens": 1_000_000, "context_model": "claude-opus-5-5",
+         "last_call_ts": "2026-10-20T10:00:00+00:00"}
+    warm = costs.context_meter(u, datetime(2026, 10, 20, 10, 4, tzinfo=UTC))
+    cold = costs.context_meter(u, datetime(2026, 10, 20, 10, 6, tzinfo=UTC))
+    assert warm["cache_warm"] and not cold["cache_warm"]
+    assert warm["next_turn_warm_usd"] == pytest.approx(0.20)
+    assert warm["next_turn_cold_usd"] == pytest.approx(5.0)
+    assert costs.context_meter({"context_tokens": None}, datetime.now(UTC)) == {}

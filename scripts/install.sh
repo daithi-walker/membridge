@@ -48,7 +48,7 @@ echo "    Data dir: $HOME/.membridge"
 echo ""
 echo "==> Installing Claude Code commands..."
 mkdir -p "$HOME/.claude/commands"
-for cmd in membridge-summarize membridge-archive membridge-context membridge-link membridge-note membridge-rename membridge-report; do
+for cmd in membridge-summarize membridge-handoff membridge-archive membridge-context membridge-link membridge-note membridge-rename membridge-report; do
   if [ -f "$PROJECT_DIR/commands/$cmd.md" ]; then
     cp "$PROJECT_DIR/commands/$cmd.md" "$HOME/.claude/commands/$cmd.md"
     echo "    /$cmd → ~/.claude/commands/$cmd.md"
@@ -70,7 +70,7 @@ NOTIFICATION_HOOK="$HOOKS_DIR/claude_ui_notification.sh"
 [ -f "$SETTINGS_FILE" ] || echo '{}' > "$SETTINGS_FILE"
 
 python3 - "$SETTINGS_FILE" "$HEARTBEAT_HOOK" "$TOOL_USE_HOOK" "$TOOL_BATCH_HOOK" "$STOP_HOOK" "$NOTIFICATION_HOOK" << 'PYEOF'
-import json, sys
+import json, os, sys
 settings_path, heartbeat_hook, tool_use_hook, tool_batch_hook, stop_hook, notification_hook = sys.argv[1:]
 with open(settings_path) as f:
     settings = json.load(f)
@@ -94,6 +94,14 @@ register("PreToolUse", tool_use_hook)
 register("PostToolBatch", tool_batch_hook)
 register("Stop", stop_hook)
 register("Notification", notification_hook, matcher="permission_prompt")
+# Status line: only set if the user has none, never overwrite a custom one.
+statusline = os.path.join(os.path.dirname(heartbeat_hook), "membridge_statusline.py")
+if "statusLine" not in settings:
+    # refreshInterval re-renders while idle so the cache warm -> cold flip shows up.
+    settings["statusLine"] = {"type": "command", "command": f"python3 {statusline}", "refreshInterval": 30}
+    print(f"  Added statusLine: {statusline}")
+else:
+    print("  statusLine already set; leaving it (MemBridge's is at hooks/membridge_statusline.py)")
 with open(settings_path, "w") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")

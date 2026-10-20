@@ -601,6 +601,10 @@ function buildRow(s) {
   costTd.appendChild(costEl(s.usage));
   tr.appendChild(costTd);
 
+  const ctxTd = td('col-ctx');
+  ctxTd.appendChild(contextEl(s.usage));
+  tr.appendChild(ctxTd);
+
   const linksTd = td('col-links');
   if (s.linked_session_ids && s.linked_session_ids.length) {
     const linkInd = document.createElement('span');
@@ -965,6 +969,35 @@ function costEl(u) {
   return span;
 }
 
+function formatIdle(secs) {
+  if (secs < 60) return `${Math.round(secs)}s`;
+  if (secs < 3600) return `${Math.round(secs / 60)}m`;
+  if (secs < 86400) return `${Math.round(secs / 3600)}h`;
+  return `${Math.round(secs / 86400)}d`;
+}
+
+// One-line description of the current context, shared by the row tooltip and panel.
+function contextSummary(u) {
+  const cache = u.cache_warm
+    ? `cache warm (idle ${formatIdle(u.idle_secs)})`
+    : `cache cold (idle ${formatIdle(u.idle_secs)})`;
+  const next = u.next_turn_cold_usd == null ? '' :
+    `next turn reads context for ${formatUsd(u.cache_warm ? u.next_turn_warm_usd : u.next_turn_cold_usd)}` +
+    (u.cache_warm ? ` (${formatUsd(u.next_turn_cold_usd)} once cold)` : ' (full cache rewrite)');
+  return [cache, next].filter(Boolean).join(' · ');
+}
+
+function contextEl(u) {
+  const span = document.createElement('span');
+  span.className = 'count-text';
+  if (!u || u.context_tokens == null) { span.textContent = '—'; return span; }
+  span.textContent = formatTokens(u.context_tokens);
+  if (u.context_tokens > 500000) span.classList.add('ctx-huge');
+  else if (u.context_tokens > 200000) span.classList.add('ctx-large');
+  span.title = `${u.context_tokens.toLocaleString()} tokens (${u.context_model})\n${contextSummary(u)}`;
+  return span;
+}
+
 async function loadUsage(sessionId) {
   const body = document.getElementById('panel-usage-body');
   body.textContent = 'Loading…';
@@ -993,8 +1026,12 @@ async function loadUsage(sessionId) {
       <td class="num">${turn.calls}</td>
       <td class="num">${formatUsd(turn.cost_usd)}</td>
     </tr>`).join('');
+  const live = (sessions.find(x => x.session_id === sessionId) || {}).usage || {};
+  const ctxRow = live.context_tokens == null ? '' : `
+      <span class="meta-label">Context</span>
+      <span class="meta-value">${formatTokens(live.context_tokens)} tokens · ${esc(contextSummary(live))}</span>`;
   body.innerHTML = `
-    <div class="panel-meta">
+    <div class="panel-meta">${ctxRow}
       <span class="meta-label">Cost</span>
       <span class="meta-value">${formatUsd(u.cost_usd)} list · ${formatUsd(u.billed_usd)} billed</span>
       <span class="meta-label">Billing</span><span class="meta-value">${billing || '—'}</span>
@@ -1546,6 +1583,7 @@ const COL_DEFAULTS = {
   'col-id':       88,
   'col-prompts':  64,
   'col-cost':     72,
+  'col-ctx':      72,
   'col-links':    36,
 };
 

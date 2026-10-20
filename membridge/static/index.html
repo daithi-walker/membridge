@@ -274,11 +274,14 @@
     /* column widths are set via <col> elements — JS controls them */
     /* overflow:hidden only on td — th needs visible overflow so the ::after resize handle isn't clipped */
     th.col-status, th.col-project, th.col-desc, th.col-branch,
-    th.col-last, th.col-id, th.col-prompts, th.col-cost, th.col-links { white-space: nowrap; overflow: visible; }
+    th.col-last, th.col-id, th.col-prompts, th.col-cost, th.col-ctx, th.col-links { white-space: nowrap; overflow: visible; }
     td.col-status, td.col-project, td.col-branch,
-    td.col-last, td.col-id, td.col-prompts, td.col-cost, td.col-links { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    td.col-last, td.col-id, td.col-prompts, td.col-cost, td.col-ctx, td.col-links { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     td.col-desc { overflow: hidden; white-space: normal; word-break: break-word; vertical-align: top; }
-    .col-prompts, .col-cost { text-align: right; }
+    .col-prompts, .col-cost, .col-ctx { text-align: right; }
+    /* Context size bands: every turn re-reads the whole context, and a cold cache rewrites it */
+    .count-text.ctx-large { color: var(--idle); }
+    .count-text.ctx-huge  { color: #f87171; font-weight: 600; }
     /* API-equivalent cost of a subscription / unknown-auth session: not actually billed */
     .cost-notional { font-style: italic; opacity: 0.7; }
     .col-links { text-align: center; }
@@ -1158,6 +1161,7 @@
           <col data-col="col-id">
           <col data-col="col-prompts">
           <col data-col="col-cost">
+          <col data-col="col-ctx">
           <col data-col="col-links">
         </colgroup>
         <thead>
@@ -1170,6 +1174,7 @@
             <th class="col-id">ID</th>
             <th class="col-prompts">Prompts</th>
             <th class="col-cost" title="Estimated cost from transcript token usage at list price. Italic = API-equivalent (subscription or unknown auth), not billed.">Cost</th>
+            <th class="col-ctx" title="Current context (tokens in the latest main-thread call). Amber over 200k, red over 500k. Hover a cell for cache warmth and next-turn cost.">Context</th>
             <th class="col-links"></th>
           </tr>
         </thead>

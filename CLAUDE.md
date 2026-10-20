@@ -21,6 +21,7 @@ hooks/
   claude_ui_heartbeat.sh   UserPromptSubmit hook — POST /api/heartbeat (incl. auth_mode)
   claude_ui_tool_use.sh    PreToolUse hook — POST /api/touch
   claude_ui_stop.sh        Stop hook — POST /api/stop (auto-summary + usage ingest)
+  membridge_statusline.py  Claude Code statusLine (context, cache warmth, cost; stdin only, no server)
 
 scripts/
   run.sh            Entrypoint for launchd — starts uvicorn on port 7842
@@ -32,6 +33,7 @@ commands/
   membridge-summarize.md   /membridge-summarize slash command
   membridge-archive.md     /membridge-archive slash command
   membridge-context.md     /membridge-context slash command
+  membridge-handoff.md     /membridge-handoff — handoff summary, then /clear + /membridge-context
 
 docs/
   ARCHITECTURE.md      System design and data model

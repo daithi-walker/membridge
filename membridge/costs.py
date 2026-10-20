@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import bisect
 import tomllib
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -88,3 +89,27 @@ def session_usage(session_id: str) -> dict[str, Any]:
         _add(turn, call)
     totals["turns"] = [turns[i] for i in sorted(turns)]
     return totals
+
+
+# Claude Code writes the prompt cache with the default 5-minute TTL; a session idle
+# longer than this rewrites its whole context on the next turn.
+CACHE_TTL_SECS = 300
+
+
+def context_meter(usage: dict, now: datetime, pricing: dict[str, Any] = PRICING) -> dict[str, Any]:
+    """Current-context view of a get_usage_by_session row: idle time, whether the
+    prompt cache is still warm, and what the next turn costs just to re-read the
+    context (cache read if warm, full cache write if cold). Empty if the session
+    has no main-thread call yet."""
+    if usage.get("context_tokens") is None:
+        return {}
+    idle = (now - datetime.fromisoformat(usage["last_call_ts"])).total_seconds()
+    rates = pricing["models"].get(usage["context_model"])
+    ctx = usage["context_tokens"]
+    return {
+        "context_tokens": ctx,
+        "idle_secs": idle,
+        "cache_warm": idle < CACHE_TTL_SECS,
+        "next_turn_warm_usd": ctx * float(rates["cache_read"]) / 1e6 if rates else None,
+        "next_turn_cold_usd": ctx * float(rates["cache_write_5m"]) / 1e6 if rates else None,
+    }
