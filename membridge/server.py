@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import db
+from . import costs, db, usage
 from . import focus as _focus
 from . import sesh as _sesh
 from .summariser import summarise
@@ -83,6 +83,7 @@ class HeartbeatPayload(BaseModel):
     iterm_session_uuid: str | None = None
     prompt: str = ""
     transcript_path: str = ""
+    auth_mode: str = ""
 
 
 class TouchPayload(BaseModel):
@@ -167,6 +168,7 @@ def heartbeat(payload: HeartbeatPayload) -> dict:
         iterm_session_uuid=payload.iterm_session_uuid or None,
         prompt=payload.prompt or None,
         transcript_path=payload.transcript_path or None,
+        auth_mode=payload.auth_mode if payload.auth_mode in usage.AUTH_MODES else None,
     )
     if result.is_new and payload.iterm_tab:
         # New session — rename the new tab to project · branch
@@ -205,6 +207,11 @@ async def stop(payload: StopPayload) -> dict:
     )
     if payload.transcript_path:
         asyncio.create_task(_generate_summary(payload.session_id, payload.transcript_path))
+        ingest = asyncio.create_task(
+            asyncio.to_thread(usage.ingest_session, payload.session_id, payload.transcript_path),
+            name=f"ingest_usage:{payload.session_id}",
+        )
+        ingest.add_done_callback(_log_task_exception)
     asyncio.create_task(_snapshot_on_stop(payload.session_id))
     _notify_stop(payload.session_id, was_awaiting)
     _broadcast(json.dumps({"type": "tool_end", "session_id": payload.session_id}))
@@ -334,9 +341,11 @@ def sessions() -> list[dict]:
     rows = db.list_sessions()
     now = datetime.now(UTC)
     settings = db.get_settings()
+    usage_map = db.get_usage_by_session()
     result: list[dict] = []
     for row in rows:
         d = dict(row)
+        d["usage"] = usage_map.get(str(d["session_id"]))
         status = _compute_status(
             str(d["last_seen"]), now,
             settings["active_threshold_secs"],
@@ -427,6 +436,16 @@ def get_summaries(session_id: str) -> list[dict]:
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return db.get_summaries(session_id)
+
+
+# ── Usage / cost ─────────────────────────────────────────────────────────────
+
+
+@app.get("/api/sessions/{session_id}/usage")
+def get_session_usage(session_id: str) -> dict:
+    """Token usage and estimated cost for a session, with a per-turn breakdown.
+    No 404 for unknown sessions: backfilled history can lack a sessions row."""
+    return costs.session_usage(session_id)
 
 
 # ── sesh (session snapshots) ────────────────────────────────────────────────

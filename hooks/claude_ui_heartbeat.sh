@@ -27,6 +27,18 @@ if [ -n "${ITERM_SESSION_ID:-}" ]; then
   ITERM_UUID=$(echo "$ITERM_SESSION_ID" | cut -d: -f2)
 fi
 
+# How this session reaches the model, from Claude Code's environment (hooks inherit
+# it). Only the mode is reported, never a credential. An apiKeyHelper-only setup
+# with no key in the environment reads as "subscription".
+AUTH_MODE=$(python3 -c "
+import os
+on = lambda k: os.environ.get(k, '').lower() not in ('', '0', 'false')
+print('vertex' if on('CLAUDE_CODE_USE_VERTEX') else
+      'bedrock' if on('CLAUDE_CODE_USE_BEDROCK') else
+      'foundry' if on('CLAUDE_CODE_USE_FOUNDRY') else
+      'api' if os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_AUTH_TOKEN') else
+      'subscription')" 2>/dev/null || true)
+
 # Read the original $PAYLOAD via stdin (not argv) for the potentially-large
 # 'prompt' field, rather than round-tripping it through a shell variable/argv.
 BODY=$(echo "$PAYLOAD" | python3 -c "
@@ -41,7 +53,8 @@ print(json.dumps({
     'iterm_session_uuid':  sys.argv[6] or None,
     'prompt':              original.get('prompt', ''),
     'transcript_path':     original.get('transcript_path', ''),
-}))" "$SESSION_ID" "$CWD" "${BRANCH:-}" "${ITERM_TAB:-}" "${CLAUDE_PID:-}" "${ITERM_UUID:-}" 2>/dev/null)
+    'auth_mode':           sys.argv[7],
+}))" "$SESSION_ID" "$CWD" "${BRANCH:-}" "${ITERM_TAB:-}" "${CLAUDE_PID:-}" "${ITERM_UUID:-}" "${AUTH_MODE:-}" 2>/dev/null)
 
 curl -s -X POST "${MEMBRIDGE_URL:-http://localhost:7842}/api/heartbeat" \
   -H "Content-Type: application/json" \

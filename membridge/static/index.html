@@ -274,11 +274,13 @@
     /* column widths are set via <col> elements — JS controls them */
     /* overflow:hidden only on td — th needs visible overflow so the ::after resize handle isn't clipped */
     th.col-status, th.col-project, th.col-desc, th.col-branch,
-    th.col-last, th.col-id, th.col-prompts, th.col-links { white-space: nowrap; overflow: visible; }
+    th.col-last, th.col-id, th.col-prompts, th.col-cost, th.col-links { white-space: nowrap; overflow: visible; }
     td.col-status, td.col-project, td.col-branch,
-    td.col-last, td.col-id, td.col-prompts, td.col-links { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    td.col-last, td.col-id, td.col-prompts, td.col-cost, td.col-links { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     td.col-desc { overflow: hidden; white-space: normal; word-break: break-word; vertical-align: top; }
-    .col-prompts { text-align: right; }
+    .col-prompts, .col-cost { text-align: right; }
+    /* API-equivalent cost of a subscription / unknown-auth session: not actually billed */
+    .cost-notional { font-style: italic; opacity: 0.7; }
     .col-links { text-align: center; }
 
     .btn-star {
@@ -345,6 +347,12 @@
     .branch-text  { font-family: monospace; font-size: 12px; color: var(--text-muted); }
     .last-text    { font-size: 12px; color: var(--text-muted); }
     .count-text   { font-size: 12px; color: var(--text-muted); }
+
+    .usage-turns { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+    .usage-turns td { padding: 3px 6px 3px 0; border-top: 1px solid var(--border); vertical-align: top; }
+    .usage-turns td.num { text-align: right; font-family: monospace; white-space: nowrap; }
+    .usage-turns td.when { color: var(--text-muted); white-space: nowrap; }
+    .usage-turns td.prompt { color: var(--text); word-break: break-word; }
 
 
     /* ── Session modal ── */
@@ -1149,6 +1157,7 @@
           <col data-col="col-last">
           <col data-col="col-id">
           <col data-col="col-prompts">
+          <col data-col="col-cost">
           <col data-col="col-links">
         </colgroup>
         <thead>
@@ -1160,6 +1169,7 @@
             <th class="col-last">Last Active</th>
             <th class="col-id">ID</th>
             <th class="col-prompts">Prompts</th>
+            <th class="col-cost" title="Estimated cost from transcript token usage at list price. Italic = API-equivalent (subscription or unknown auth), not billed.">Cost</th>
             <th class="col-links"></th>
           </tr>
         </thead>
@@ -1222,6 +1232,11 @@
             <span class="meta-label">Prompts</span>
             <span class="meta-value" id="panel-prompts">—</span>
           </div>
+        </div>
+
+        <div id="panel-usage-section">
+          <div class="panel-section-title">Usage <span style="font-size:9px;font-weight:400;color:var(--text-muted)">(estimated from transcript tokens at list price)</span></div>
+          <div id="panel-usage-body" style="font-size:12px;color:var(--text-muted)">—</div>
         </div>
 
         <div>

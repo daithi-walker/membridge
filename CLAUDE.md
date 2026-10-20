@@ -10,6 +10,9 @@ membridge/          FastAPI app (Python)
   db.py             SQLite helpers (sessions + session_summaries tables)
   summariser.py     Anthropic API summary generation
   focus.py          iTerm2 osascript helpers (focus, rename, pid, list)
+  usage.py          Transcript -> api_calls ingest (per-call token usage, subagents)
+  costs.py          Price api_calls from pricing.toml; per-turn/session/day rollups
+  pricing.toml      Claude list prices per model + endpoint multipliers (edit to reprice)
   static/
     index.html      Dashboard HTML + CSS
     app.js          Dashboard JS (vanilla, no build step)
@@ -23,6 +26,7 @@ scripts/
   run.sh            Entrypoint for launchd — starts uvicorn on port 7842
   install.sh        One-shot setup (venv, launchd plist, hooks, slash commands)
   backfill.py       Import historical sessions from ~/.claude/projects/
+  backfill_usage.py Ingest token usage + cost from existing transcripts
 
 commands/
   membridge-summarize.md   /membridge-summarize slash command
@@ -36,7 +40,7 @@ docs/
   BACKLOG.md           Planned features
   CODING_STANDARDS.md  Security, error handling, testing, and style rules
   COVERAGE.md          Test coverage baselines and improvement targets per release
-  adr/                 Architecture Decision Records (001–012)
+  adr/                 Architecture Decision Records (001–014)
 
 tests/
   test_db.py        DB unit tests (pytest, in-memory SQLite)

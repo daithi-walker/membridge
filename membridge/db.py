@@ -29,6 +29,7 @@ class SessionRow(TypedDict, total=False):
     starred: int
     awaiting_input: int
     working: int
+    auth_mode: str | None
 
 
 class LinkedSession(TypedDict):
@@ -42,6 +43,26 @@ class LinkedSession(TypedDict):
 class SessionTag(TypedDict):
     tag: str
     weight: float
+
+
+class ApiCall(TypedDict):
+    """One model API call, parsed from a transcript `usage` block. Token counts are
+    stored raw so cost can be recomputed from pricing.toml (re-run the backfill)."""
+    message_id: str
+    request_id: str
+    session_id: str
+    agent_id: str | None
+    ts: str
+    model: str
+    auth_mode: str | None
+    speed: str | None
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_5m_tokens: int
+    cache_write_1h_tokens: int
+    web_search_requests: int
+    cost_usd: float | None
 
 DB_PATH = Path(os.getenv("MEMBRIDGE_DB", Path.home() / ".membridge" / "sessions.db"))
 
@@ -136,6 +157,36 @@ _TAGS_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_session_tags_tag ON session_tags (tag);
 """
 
+# One row per model API call, keyed by the API's own (message id, request id) so
+# Claude Code's repeated per-content-block usage rows collapse to one call. No FK to
+# sessions: backfilled transcripts can predate MemBridge's sessions row. `auth_mode`
+# is the session's (vertex | bedrock | foundry | api | subscription), NULL if
+# unknown. `cost_usd` is the list price at ingest, NULL if the model has no price.
+_API_CALLS_SQL = """
+CREATE TABLE IF NOT EXISTS api_calls (
+    message_id              TEXT NOT NULL,
+    request_id              TEXT NOT NULL,
+    session_id              TEXT NOT NULL,
+    agent_id                TEXT,
+    ts                      TEXT NOT NULL,
+    model                   TEXT NOT NULL,
+    auth_mode               TEXT,
+    speed                   TEXT,
+    input_tokens            INTEGER NOT NULL DEFAULT 0,
+    output_tokens           INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens       INTEGER NOT NULL DEFAULT 0,
+    cache_write_5m_tokens   INTEGER NOT NULL DEFAULT 0,
+    cache_write_1h_tokens   INTEGER NOT NULL DEFAULT 0,
+    web_search_requests     INTEGER NOT NULL DEFAULT 0,
+    cost_usd                REAL,
+    PRIMARY KEY (message_id, request_id)
+);
+"""
+
+_API_CALLS_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_api_calls_session_ts ON api_calls (session_id, ts);
+"""
+
 
 def _migrate_legacy_event_tables(conn: sqlite3.Connection) -> None:
     """One-time forward migration from the short-lived heartbeat_events/stop_events
@@ -180,6 +231,9 @@ _MIGRATIONS = [
     "ALTER TABLE sessions ADD COLUMN working INTEGER NOT NULL DEFAULT 0;",
     "ALTER TABLE activity_events ADD COLUMN text TEXT;",
     "ALTER TABLE activity_events ADD COLUMN transcript_path TEXT;",
+    # How the session reached the model: vertex | bedrock | foundry | api | subscription.
+    # Reported by the heartbeat hook from Claude Code's environment.
+    "ALTER TABLE sessions ADD COLUMN auth_mode TEXT;",
 ]
 
 
@@ -199,6 +253,8 @@ def init_db() -> None:
         conn.execute(_ACTIVITY_EVENTS_KIND_INDEX_SQL)
         conn.execute(_TAGS_SQL)
         conn.execute(_TAGS_INDEX_SQL)
+        conn.execute(_API_CALLS_SQL)
+        conn.execute(_API_CALLS_INDEX_SQL)
         _migrate_legacy_event_tables(conn)
         for sql in _MIGRATIONS:
             try:
@@ -239,6 +295,7 @@ def upsert_heartbeat(
     iterm_session_uuid: str | None = None,
     prompt: str | None = None,
     transcript_path: str | None = None,
+    auth_mode: str | None = None,
 ) -> UpsertResult:
     # Resolve symlinks so paths from machines with symlinked home dirs
     # (e.g. /Users/jane/doe vs /Users/jane.doe) normalise to the same path.
@@ -268,19 +325,21 @@ def upsert_heartbeat(
                        git_branch = COALESCE(?, git_branch),
                        iterm_tab = COALESCE(?, iterm_tab),
                        pid = COALESCE(?, pid),
-                       iterm_session_uuid = COALESCE(?, iterm_session_uuid)
+                       iterm_session_uuid = COALESCE(?, iterm_session_uuid),
+                       auth_mode = COALESCE(?, auth_mode)
                    WHERE session_id = ?""",
-                (now, branch or None, iterm_tab or None, pid, iterm_session_uuid or None, session_id),
+                (now, branch or None, iterm_tab or None, pid, iterm_session_uuid or None,
+                 auth_mode or None, session_id),
             )
             result = UpsertResult(is_new=False, uuid_changed=uuid_changed, stored_tab_name=stored_tab)
         else:
             conn.execute(
                 """INSERT INTO sessions
                    (session_id, cwd, project_name, git_branch, iterm_tab, pid,
-                    iterm_session_uuid, first_seen, last_seen, prompt_count, working)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)""",
+                    iterm_session_uuid, first_seen, last_seen, prompt_count, working, auth_mode)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?)""",
                 (session_id, cwd, project_name, branch or None, iterm_tab or None, pid,
-                 iterm_session_uuid or None, now, now),
+                 iterm_session_uuid or None, now, now, auth_mode or None),
             )
             result = UpsertResult(is_new=True, uuid_changed=False, stored_tab_name=None)
 
@@ -639,6 +698,7 @@ def get_activity_events(
     since: str | None = None,
     until: str | None = None,
     kind: str | None = None,
+    session_id: str | None = None,
 ) -> list[dict]:
     """Raw activity events (kind='prompt' on UserPromptSubmit, kind='stop' when
     Claude finishes a turn), oldest first, one interleaved timeline per client.
@@ -659,6 +719,9 @@ def get_activity_events(
     if kind:
         clauses.append("kind = ?")
         params.append(kind)
+    if session_id:
+        clauses.append("session_id = ?")
+        params.append(session_id)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     with _conn() as conn:
         rows = conn.execute(
@@ -667,6 +730,57 @@ def get_activity_events(
             params,
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+_API_CALL_COLS = tuple(ApiCall.__annotations__)
+API_CALL_TOKEN_COLS = (
+    "input_tokens", "output_tokens", "cache_read_tokens",
+    "cache_write_5m_tokens", "cache_write_1h_tokens", "web_search_requests",
+)
+
+# Who pays for a call: subscriptions don't bill per token, unknown auth can't be
+# classified, every other mode (cloud endpoints, API keys) is billed.
+BILLING_SQL = """
+    CASE WHEN auth_mode = 'subscription' THEN 'subscription'
+         WHEN auth_mode IS NULL THEN 'unknown'
+         ELSE 'billed' END
+"""
+
+
+def replace_api_calls(calls: list[ApiCall]) -> None:
+    """Store calls, replacing any earlier copy (ingest re-parses whole transcripts,
+    so the newest parse is authoritative)."""
+    cols = ", ".join(_API_CALL_COLS)
+    params = ", ".join(f":{c}" for c in _API_CALL_COLS)
+    with _conn() as conn:
+        conn.executemany(f"INSERT OR REPLACE INTO api_calls ({cols}) VALUES ({params})", calls)
+
+
+def get_api_calls(session_id: str) -> list[dict]:
+    """A session's calls, oldest first, with their billing class."""
+    with _conn() as conn:
+        rows = conn.execute(
+            f"""SELECT *, {BILLING_SQL} AS billing FROM api_calls
+                WHERE session_id = ? ORDER BY ts ASC""",
+            (session_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_usage_by_session() -> dict[str, dict]:
+    """Per-session rollup for the dashboard list: call count, list-price cost, the
+    part of it actually billed, and how many calls hit a model with no price."""
+    with _conn() as conn:
+        rows = conn.execute(
+            f"""SELECT session_id,
+                       COUNT(*) AS calls,
+                       COALESCE(SUM(cost_usd), 0) AS cost_usd,
+                       COALESCE(SUM(CASE WHEN {BILLING_SQL} = 'billed' THEN cost_usd END), 0)
+                           AS billed_usd,
+                       SUM(cost_usd IS NULL) AS unpriced_calls
+                FROM api_calls GROUP BY session_id"""
+        ).fetchall()
+    return {r["session_id"]: dict(r) for r in rows}
 
 
 def get_settings() -> dict:

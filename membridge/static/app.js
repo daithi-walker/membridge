@@ -597,6 +597,10 @@ function buildRow(s) {
   countTd.innerHTML = `<span class="count-text">${s.prompt_count}</span>`;
   tr.appendChild(countTd);
 
+  const costTd = td('col-cost');
+  costTd.appendChild(costEl(s.usage));
+  tr.appendChild(costTd);
+
   const linksTd = td('col-links');
   if (s.linked_session_ids && s.linked_session_ids.length) {
     const linkInd = document.createElement('span');
@@ -787,6 +791,7 @@ function openPanel(s, scrollIntoView) {
 
   loadHistory(s.session_id);
   loadSesh(s.session_id);
+  loadUsage(s.session_id);
 
   const summariseBtn = document.getElementById('panel-summarise-btn');
   summariseBtn.textContent = '↻ Summarise';
@@ -932,6 +937,79 @@ async function loadSeshLog(sessionId) {
   } catch (_) {
     logEl.style.display = 'none';
   }
+}
+
+function formatUsd(v) {
+  if (v >= 100) return `$${Math.round(v).toLocaleString()}`;
+  return `$${v.toFixed(v < 1 ? 3 : 2)}`;
+}
+
+function formatTokens(n) {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(n);
+}
+
+// Row cost cell. Billed cost shows plainly; when nothing was billed (subscription or
+// unknown auth) the list-price figure shows in italics as an API-equivalent.
+function costEl(u) {
+  const span = document.createElement('span');
+  span.className = 'count-text';
+  if (!u || !u.calls) { span.textContent = '—'; return span; }
+  const billed = u.billed_usd > 0;
+  span.textContent = formatUsd(billed ? u.billed_usd : u.cost_usd);
+  if (!billed) span.classList.add('cost-notional');
+  const unpriced = u.unpriced_calls ? `, ${u.unpriced_calls} unpriced` : '';
+  span.title = `${u.calls} API calls${unpriced}\nList price ${formatUsd(u.cost_usd)}, billed ${formatUsd(u.billed_usd)}`;
+  return span;
+}
+
+async function loadUsage(sessionId) {
+  const body = document.getElementById('panel-usage-body');
+  body.textContent = 'Loading…';
+  let u;
+  try {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/usage`);
+    if (!res.ok) throw new Error(res.status);
+    u = await res.json();
+  } catch (err) {
+    console.warn('usage load failed', err);  // read-only panel section: no toast
+    body.textContent = 'Usage unavailable.';
+    return;
+  }
+  if (activePanel !== sessionId) return;  // panel moved on while loading
+  if (!u.calls) { body.textContent = 'No API calls recorded yet.'; return; }
+
+  const t = u.tokens;
+  const billing = Object.entries(u.by_billing)
+    .map(([k, v]) => `${esc(k)} ${formatUsd(v)}`).join(' · ');
+  const models = Object.entries(u.by_model).sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${esc(k)} ${formatUsd(v)}`).join(' · ');
+  const rows = u.turns.slice().reverse().slice(0, 100).map(turn => `
+    <tr>
+      <td class="when">${turn.ts ? esc(formatDateTime(turn.ts)) : 'earlier'}</td>
+      <td class="prompt">${turn.prompt ? esc(turn.prompt) : '<em>(before tracking)</em>'}</td>
+      <td class="num">${turn.calls}</td>
+      <td class="num">${formatUsd(turn.cost_usd)}</td>
+    </tr>`).join('');
+  body.innerHTML = `
+    <div class="panel-meta">
+      <span class="meta-label">Cost</span>
+      <span class="meta-value">${formatUsd(u.cost_usd)} list · ${formatUsd(u.billed_usd)} billed</span>
+      <span class="meta-label">Billing</span><span class="meta-value">${billing || '—'}</span>
+      <span class="meta-label">Models</span><span class="meta-value">${models || '—'}</span>
+      <span class="meta-label">API calls</span>
+      <span class="meta-value">${u.calls}${u.unpriced_calls ? ` (${u.unpriced_calls} unpriced)` : ''}</span>
+      <span class="meta-label">Tokens</span>
+      <span class="meta-value">in ${formatTokens(t.input_tokens)} · out ${formatTokens(t.output_tokens)}
+        · cache read ${formatTokens(t.cache_read_tokens)}
+        · cache write ${formatTokens(t.cache_write_5m_tokens + t.cache_write_1h_tokens)}</span>
+    </div>
+    <table class="usage-turns">
+      <tbody>${rows}</tbody>
+    </table>
+    ${u.turns.length > 100 ? `<div style="margin-top:4px">Showing latest 100 of ${u.turns.length} turns.</div>` : ''}`;
 }
 
 async function loadHistory(sessionId) {
@@ -1467,6 +1545,7 @@ const COL_DEFAULTS = {
   'col-last':    100,
   'col-id':       88,
   'col-prompts':  64,
+  'col-cost':     72,
   'col-links':    36,
 };
 

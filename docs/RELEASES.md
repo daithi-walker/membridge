@@ -4,6 +4,29 @@ Migration notes and breaking changes for each significant update. See `CHANGELOG
 
 ---
 
+## 2026-10-20 - Session cost estimates
+
+**No breaking changes.** The `api_calls` table and `sessions.auth_mode` column are created on server start. Existing history needs a one-off backfill.
+
+### Steps on each machine
+
+```bash
+git pull
+launchctl kickstart -k gui/$(id -u)/com.membridge   # creates api_calls, adds sessions.auth_mode
+uv run python scripts/backfill_usage.py             # Vertex-only machine
+uv run python scripts/backfill_usage.py --auth-mode subscription   # or --auth-mode api
+```
+
+Vertex calls are recognised from their message ids. On a machine that uses a Claude subscription or an API key, pass `--auth-mode` so older direct-Anthropic history is classified (API-equivalent or billed); sessions from now on carry their own auth mode via the heartbeat hook.
+
+### What changed
+
+- `api_calls` table (one row per API call, raw tokens + list-price cost); `sessions.auth_mode` column.
+- `hooks/claude_ui_heartbeat.sh` sends `auth_mode`. Hooks are read from the repo, so no re-registration.
+- `membridge/pricing.toml` holds the price table. After editing it, restart and re-run the backfill to reprice.
+
+---
+
 ## 2026-08-12 - Activity events + `/membridge-report`
 
 **No breaking changes.** `git pull` + restart picks up the new table automatically; re-run `install.sh` to get the new slash command.
