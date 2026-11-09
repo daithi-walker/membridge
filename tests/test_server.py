@@ -580,3 +580,17 @@ def test_sessions_list_includes_tags(client):
     client.post("/api/sessions/s1/tags", json={"tag": "client-x", "weight": 0.5})
     result = {s["session_id"]: s for s in client.get("/api/sessions").json()}
     assert result["s1"]["tags"] == [{"tag": "client-x", "weight": 0.5}]
+
+
+# ── Context search ───────────────────────────────────────────────────────────
+
+def test_search_endpoint_returns_ranked_hits(client):
+    client.post("/api/heartbeat", json={"session_id": "s1", "cwd": "/tmp/proj"})
+    client.post("/api/sessions/s1/push-summary", json={"text": "Evaluated omnigraph storage"})
+    res = client.get("/api/search", params={"q": "omnigraph"})
+    assert res.status_code == 200
+    hits = res.json()
+    assert [h["session_id"] for h in hits] == ["s1"]
+    assert hits[0]["project_name"] == "proj"
+    assert hits[0]["kind"] == "summary"
+

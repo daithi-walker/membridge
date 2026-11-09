@@ -12,6 +12,9 @@ let activePanel = null;
 let editingInline = false;
 // Pin order: when non-null, rows stay in this ID order regardless of live status changes
 let pinnedOrder = null;
+// Context search: when non-null, a Map of session_id → hit in rank order (from /api/search).
+// While set, the table shows only matching sessions, best first, ignoring the Show filter.
+let searchHits = null;
 
 // Use the page's own origin so focus/sync work from LAN (phone), not just localhost
 const BASE = window.location.origin;
@@ -303,7 +306,8 @@ async function fetchSessions() {
     sessions = await res.json();
     updateProjectFilter(sessions);
     // Don't clobber an active inline edit — the save() handler will call renderDescText() itself
-    if (!editingInline) render(sessions);
+    if (searchHits) runSearch(); // refresh hits too: new summaries/notes may now match
+    else if (!editingInline) render(sessions);
   } catch (e) {
     console.error('Fetch failed', e);
   } finally {
@@ -348,18 +352,72 @@ function updateProjectFilter(all) {
   saveProjectFilter();
 }
 
+// ── Context search ──────────────────────────────────────────────────────────
+const contextSearchInput = document.getElementById('context-search');
+let searchTimer = null;
+
+async function runSearch() {
+  const q = contextSearchInput.value.trim();
+  if (!q) {
+    searchHits = null;
+    render(sessions);
+    return;
+  }
+  try {
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=100`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const hits = await res.json();
+    if (contextSearchInput.value.trim() !== q) return; // a newer query is in flight
+    searchHits = new Map(hits.map(h => [h.session_id, h]));
+  } catch (e) {
+    console.error('Search failed', e);
+    showToast('Search failed');
+    return;
+  }
+  if (!editingInline) render(sessions);
+}
+
+contextSearchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(runSearch, 200);
+});
+contextSearchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    contextSearchInput.value = '';
+    runSearch();
+  }
+});
+
+// Matched snippet for a session while a search is active, with terms highlighted.
+// The server wraps matches in STX/ETX; escape first, then swap those for <mark>.
+function searchSnippetEl(sessionId) {
+  const hit = searchHits && searchHits.get(sessionId);
+  // A description hit would just repeat the description shown above it
+  if (!hit || !hit.snippet || hit.kind === 'description') return null;
+  const el = document.createElement('div');
+  el.className = 'search-snippet';
+  el.innerHTML = esc(hit.snippet).replace(/\u0002/g, '<mark>').replace(/\u0003/g, '</mark>');
+  el.title = `${hit.hits} match${hit.hits === 1 ? '' : 'es'} · best in ${hit.kind}`;
+  return el;
+}
+
 function render(all) {
-  let visible = all.filter(s => {
-    if (s.starred && showFilter.has('starred')) return true;
-    if (s.archived) return showFilter.has('archived');
-    return showFilter.has(s.status);
-  });
+  let visible = searchHits
+    ? all.filter(s => searchHits.has(s.session_id))
+    : all.filter(s => {
+      if (s.starred && showFilter.has('starred')) return true;
+      if (s.archived) return showFilter.has('archived');
+      return showFilter.has(s.status);
+    });
   if (projectFilter.has('__none__')) {
     visible = [];
   } else if (projectFilter.size > 0) {
     visible = visible.filter(s => projectFilter.has(s.project_name));
   }
-  if (pinnedOrder) {
+  if (searchHits) {
+    const rank = new Map([...searchHits.keys()].map((id, i) => [id, i]));
+    visible.sort((a, b) => rank.get(a.session_id) - rank.get(b.session_id));
+  } else if (pinnedOrder) {
     // Maintain pinned order; new sessions (not in snapshot) go at the end
     const idx = new Map(pinnedOrder.map((id, i) => [id, i]));
     visible.sort((a, b) => {
@@ -371,7 +429,9 @@ function render(all) {
 
   const active = all.filter(s => s.status === 'active').length;
   const idle = all.filter(s => s.status === 'idle').length;
-  summaryCount.textContent = `${active} active · ${idle} idle · ${all.length} total`;
+  summaryCount.textContent = searchHits
+    ? `${visible.length} matching · ${all.length} total`
+    : `${active} active · ${idle} idle · ${all.length} total`;
 
   const awaitingN = all.filter(s => s.awaiting_input && s.status !== 'stale').length;
   const awaitingBadge = document.getElementById('awaiting-badge');
@@ -519,6 +579,8 @@ function buildRow(s) {
     descTd.textContent = _desc;
     descTd.title = 'Click to edit description';
     descTd.style.cursor = 'text';
+    const snip = searchSnippetEl(s.session_id);
+    if (snip) descTd.appendChild(snip);
   }
   renderDescText();
 
@@ -698,6 +760,8 @@ function buildCard(s) {
     desc.textContent = plain.slice(0, 100) + (plain.length > 100 ? '…' : '');
     card.appendChild(desc);
   }
+  const snip = searchSnippetEl(s.session_id);
+  if (snip) card.appendChild(snip);
 
   // Bottom meta row: branch · last active · id
   const bottom = document.createElement('div');

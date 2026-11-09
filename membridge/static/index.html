@@ -205,6 +205,28 @@
       color: var(--text);
     }
     #proj-search:focus { outline: none; border-color: var(--accent); }
+    #context-search {
+      width: 220px;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-family: inherit;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+    }
+    #context-search:focus { outline: none; border-color: var(--accent); }
+    .search-snippet {
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--text-muted);
+      opacity: 0.85;
+    }
+    .search-snippet mark {
+      background: color-mix(in srgb, var(--accent) 30%, transparent);
+      color: var(--text);
+      border-radius: 2px;
+    }
     #proj-checkboxes { overflow-y: auto; flex: 1 1 auto; }
     #proj-no-match { padding: 5px 10px; font-size: 12px; color: var(--text-muted); }
 
@@ -1133,6 +1155,7 @@
         <div id="proj-no-match" style="display:none">No matching projects</div>
       </div>
     </div>
+    <input id="context-search" type="search" placeholder="Search summaries & notes…" autocomplete="off" title="Full-text search across all sessions (Esc to clear)">
     <button id="pin-order-btn" class="filter-btn" data-tooltip="Pin row order — prevents sessions reshuffling while you work">⚓</button>
     <span id="summary-count"></span>
   </div>

@@ -37,6 +37,7 @@ Claude Code (any session, any project)
                                         ├── /api/sessions/{id}/summarise  POST
                                         ├── /api/sessions/{id}/push-summary  POST
                                         ├── /api/sessions/{id}/summaries  GET
+                                        ├── /api/search         GET  → db.search() (FTS5)
                                         ├── /api/focus          POST → iTerm2 focus/resume
                                         └── /api/settings       GET/PATCH
 
@@ -100,6 +101,12 @@ session_summaries (
   created_at  TEXT        -- ISO8601 UTC
 )
 -- Append-only log. Never overwrites. Full history per session.
+
+search_index  -- FTS5 virtual table, tokenize = 'porter unicode61'
+  (session_id UNINDEXED, kind UNINDEXED, ref_id UNINDEXED, text)
+-- kind: 'summary' (ref_id = session_summaries.id) | 'description' | 'notes'.
+-- Derived: triggers on session_summaries and sessions keep it in sync; rebuilt
+-- from source rows by init_db() on every startup.
 
 settings (
   key    TEXT PRIMARY KEY,

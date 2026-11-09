@@ -467,3 +467,82 @@ def test_list_sessions_includes_tags():
     db.add_session_tag("aaa", "client-x", 0.5)
     rows = {r["session_id"]: r for r in db.list_sessions()}
     assert rows["aaa"]["tags"] == [{"tag": "client-x", "weight": 0.5}]
+
+
+# ── context search ────────────────────────────────────────────────────────────
+
+def _search_ids(q: str) -> list[str]:
+    return [h["session_id"] for h in db.search(q)]
+
+
+def test_search_finds_summaries_with_stemming():
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp/a", branch=None, iterm_tab=None)
+    db.upsert_heartbeat(session_id="s2", cwd="/tmp/b", branch=None, iterm_tab=None)
+    db.add_summary("s1", "Benchmarked the graph loader", source="skill")
+    db.add_summary("s2", "Fixed dashboard CSS", source="skill")
+    assert _search_ids("benchmark") == ["s1"]   # porter: benchmark ~ benchmarked
+    assert _search_ids("graph load") == ["s1"]  # terms ANDed
+    assert _search_ids("graph dashboard") == []
+
+
+def test_search_prefix_matches_last_word():
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    db.add_summary("s1", "Evaluated omnigraph as a context store", source="skill")
+    assert _search_ids("omnig") == ["s1"]
+
+
+def test_search_tracks_description_and_notes_updates():
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    db.update_description("s1", "Lance storage spike")
+    db.update_notes("s1", "remember the cleanup step")
+    assert db.search("lance")[0]["kind"] == "description"
+    assert db.search("cleanup")[0]["kind"] == "notes"
+    db.update_description("s1", "Something else")
+    assert _search_ids("lance") == []
+
+
+def test_search_collapses_to_one_hit_per_session():
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    db.add_summary("s1", "doclib site one", source="skill")
+    db.add_summary("s1", "doclib site two", source="skill")
+    hits = db.search("doclib")
+    assert len(hits) == 1
+    assert hits[0]["hits"] == 2
+    assert db.SNIPPET_START + "doclib" + db.SNIPPET_END in hits[0]["snippet"]
+
+
+def test_search_ignores_fts_syntax_in_input():
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    db.add_summary("s1", "foo bar", source="skill")
+    assert _search_ids('foo-bar "(* NEAR') == []  # no OperationalError
+    assert _search_ids('"foo"') == ["s1"]
+    assert db.search("   ") == []
+    assert db.search("!!!") == []
+
+
+def test_search_drops_deleted_sessions():
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    db.add_summary("s1", "ephemeral work", source="skill")
+    db.update_notes("s1", "ephemeral notes")
+    db.delete_session("s1")
+    assert _search_ids("ephemeral") == []
+    with db._conn() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM search_index").fetchone()[0] == 0
+
+
+def test_init_builds_search_index_from_existing_rows():
+    db.upsert_heartbeat(session_id="s1", cwd="/tmp", branch=None, iterm_tab=None)
+    db.add_summary("s1", "pre-existing summary", source="skill")
+    db.update_notes("s1", "pre-existing notes")
+    # Simulate a DB from before search existed (init_db rebuilds on every startup)
+    with db._conn() as conn:
+        for name in ("search_summary_ai", "search_summary_ad", "search_session_ai",
+                     "search_session_au", "search_session_ad"):
+            conn.execute(f"DROP TRIGGER {name}")
+        conn.execute("DROP TABLE search_index")
+    db.init_db()
+    hits = db.search("existing")
+    assert [h["session_id"] for h in hits] == ["s1"]
+    assert hits[0]["hits"] == 2
+    db.init_db()  # second init must not duplicate rows
+    assert db.search("existing")[0]["hits"] == 2

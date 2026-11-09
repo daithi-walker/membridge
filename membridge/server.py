@@ -602,6 +602,15 @@ def remove_link(session_id: str, target_id: str) -> dict:
     return {"ok": True}
 
 
+# ── context search ───────────────────────────────────────────────────────────
+
+@app.get("/api/search")
+def search(q: str, limit: int = 20) -> list[dict]:
+    """Full-text search over summaries, descriptions, and notes; one hit per session,
+    best first. Snippets mark matched terms with db.SNIPPET_START / SNIPPET_END."""
+    return [dict(h) for h in db.search(q, limit=limit)]
+
+
 # ── session tags (domain-neutral labels + weights) ──────────────────────────
 
 @app.get("/api/tags")
