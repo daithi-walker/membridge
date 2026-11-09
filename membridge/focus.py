@@ -10,7 +10,35 @@ from . import sesh as _sesh
 
 logger = logging.getLogger(__name__)
 
-_CLAUDE_BIN = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
+
+
+def _resolve_claude_bin() -> str:
+    """Pick the launcher used to `--resume` sessions from the dashboard.
+
+    Defaults to plain `claude`. Set MEMBRIDGE_CLAUDE_CMD (in .env) to a name on
+    PATH or an absolute path to use a local wrapper instead, e.g. one that pins
+    the provider or account a resumed session should run under. If the configured
+    command can't be found, fall back to `claude`. launchd's PATH lacks
+    ~/.local/bin, so check that location explicitly too.
+    """
+    candidates = [os.environ.get("MEMBRIDGE_CLAUDE_CMD", "").strip(), "claude"]
+    for name in filter(None, candidates):
+        found = shutil.which(os.path.expanduser(name))
+        if found:
+            return found
+        local = os.path.expanduser(f"~/.local/bin/{name}")
+        if "/" not in name and os.path.isfile(local) and os.access(local, os.X_OK):
+            return local
+    return "claude"
+
+
+_CLAUDE_BIN = _resolve_claude_bin()
+
+
+def resume_bin() -> str:
+    """Launcher name for display/copy: bare name when it resolves on PATH, else full path."""
+    name = os.path.basename(_CLAUDE_BIN)
+    return name if shutil.which(name) == _CLAUDE_BIN else _CLAUDE_BIN
 
 _PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
 

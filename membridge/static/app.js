@@ -1,5 +1,6 @@
 let REFRESH_MS = 30_000;
 let ticketBaseUrl = '';
+let resumeBin = 'claude';  // launcher for 'Copy resume'; set from /api/settings resume_bin
 let refreshTimer = null;
 let sessions = [];
 // showFilter: which session types are visible. Default: active + idle (not stale, not archived)
@@ -786,7 +787,7 @@ function openPanel(s, scrollIntoView) {
 
   const resumeBtn = document.getElementById('panel-resume-btn');
   resumeBtn.onclick = () => {
-    navigator.clipboard.writeText(`claude --resume ${s.session_id}`).then(() => {
+    navigator.clipboard.writeText(`${resumeBin} --resume ${s.session_id}`).then(() => {
       resumeBtn.textContent = 'Copied!';
       resumeBtn.classList.add('copied');
       setTimeout(() => { resumeBtn.textContent = 'Copy resume'; resumeBtn.classList.remove('copied'); }, 2000);
@@ -1702,6 +1703,7 @@ function connectSSE() {
     const s = await res.json();
     REFRESH_MS = s.refresh_interval_secs * 1000;
     ticketBaseUrl = s.ticket_base_url || '';
+    resumeBin = s.resume_bin || 'claude';
   } catch (_) {}
   initColResize();
   await fetchSessions();

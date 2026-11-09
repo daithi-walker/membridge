@@ -132,5 +132,6 @@ Settings in a separate `settings` table: `active_threshold_secs`, `idle_threshol
 | `ANTHROPIC_API_KEY` | — | Anthropic API key for auto-summary |
 | `CLAUDE_SUMMARY_MODEL` | `claude-haiku-4-5-20251001` | Model for auto-summary |
 | `MEMBRIDGE_DB` | `~/.membridge/sessions.db` | SQLite DB path |
+| `MEMBRIDGE_CLAUDE_CMD` | `claude` | Launcher used to `--resume` sessions from the dashboard (name on PATH or absolute path, e.g. a local wrapper that pins provider/account) |
 
 Copy `.env.example` → `.env` and set `ANTHROPIC_API_KEY`.

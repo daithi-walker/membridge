@@ -693,7 +693,8 @@ def delete_session(session_id: str) -> dict:
 
 @app.get("/api/settings")
 def get_settings() -> dict:
-    return db.get_settings()
+    # resume_bin is read-only (from MEMBRIDGE_CLAUDE_CMD / PATH), not stored in the DB.
+    return {**db.get_settings(), "resume_bin": _focus.resume_bin()}
 
 
 @app.patch("/api/settings")
