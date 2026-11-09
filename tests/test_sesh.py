@@ -127,6 +127,37 @@ class TestResumeCommand:
         assert cmd == "/bin/claude --resume abc123"
 
 
+class TestResolveClaudeBin:
+    def _which(self, available):
+        return lambda name: f"/opt/bin/{name}" if name in available else None
+
+    def test_defaults_to_plain_claude(self, monkeypatch):
+        monkeypatch.delenv("MEMBRIDGE_CLAUDE_CMD", raising=False)
+        monkeypatch.setattr(focus.shutil, "which", self._which({"claude", "my-claude"}))
+        assert focus._resolve_claude_bin() == "/opt/bin/claude"
+
+    def test_env_override_wins(self, monkeypatch):
+        monkeypatch.setenv("MEMBRIDGE_CLAUDE_CMD", "my-claude")
+        monkeypatch.setattr(focus.shutil, "which", self._which({"claude", "my-claude"}))
+        assert focus._resolve_claude_bin() == "/opt/bin/my-claude"
+
+    def test_missing_override_falls_back_to_claude(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("MEMBRIDGE_CLAUDE_CMD", "my-claude")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setattr(focus.shutil, "which", self._which({"claude"}))
+        assert focus._resolve_claude_bin() == "/opt/bin/claude"
+
+    def test_finds_override_in_local_bin_off_path(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("MEMBRIDGE_CLAUDE_CMD", "my-claude")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        wrapper = tmp_path / ".local" / "bin" / "my-claude"
+        wrapper.parent.mkdir(parents=True)
+        wrapper.write_text("#!/bin/sh\n")
+        wrapper.chmod(0o755)
+        monkeypatch.setattr(focus.shutil, "which", self._which({"claude"}))
+        assert focus._resolve_claude_bin() == str(wrapper)
+
+
 # ── REST endpoints ────────────────────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)

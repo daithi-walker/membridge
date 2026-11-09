@@ -104,6 +104,7 @@ Set in `.env` or as environment variables:
 | `ANTHROPIC_API_KEY` | - | Required for auto-summary |
 | `CLAUDE_SUMMARY_MODEL` | `claude-haiku-4-5-20251001` | Model used for summaries |
 | `MEMBRIDGE_DB` | `~/.membridge/sessions.db` | SQLite DB path |
+| `MEMBRIDGE_CLAUDE_CMD` | `claude` | Launcher used to `--resume` sessions from the dashboard (name on PATH or absolute path, e.g. a local wrapper that pins provider/account) |
 
 Thresholds (active/idle/stale) and the dashboard refresh interval are configurable via the Settings modal in the UI.
 

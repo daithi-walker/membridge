@@ -6,6 +6,7 @@ Completed work, newest first.
 
 ## Unreleased
 
+- `MEMBRIDGE_CLAUDE_CMD` sets the launcher used to resume sessions (Focus on a dead session, and Copy resume), e.g. a local wrapper that pins the provider/account. Defaults to `claude`.
 - Context meter: a Context column (current tokens, amber over 200k, red over 500k) and a panel line showing prompt-cache warmth and what the next turn costs just to re-read the context (cache read when warm, full rewrite when cold). Cold rewrites after idle gaps measured at 39-53% of Opus 5.5 main-session cost.
 - `hooks/membridge_statusline.py`: Claude Code status line with model, context size (same colour bands), cache warm/cold and session cost, built only from Claude Code's own status-line JSON. `install.sh` sets it (with `refreshInterval: 30`) only when no status line is configured.
 - `/membridge-handoff`: writes a fresh-context handoff summary (source `handoff`), then you `/clear` and `/membridge-context <prefix>` to continue cheaply instead of carrying a huge context.
