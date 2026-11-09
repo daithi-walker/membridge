@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -187,6 +188,67 @@ _API_CALLS_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_api_calls_session_ts ON api_calls (session_id, ts);
 """
 
+# Full-text index over the context a session leaves behind: every summary entry plus
+# the session's current description and notes. `kind` is summary | description | notes;
+# `ref_id` is the session_summaries row id for summaries, NULL otherwise. Triggers keep
+# it in sync (cascade deletes fire them too); init_db() rebuilds it on every startup.
+_SEARCH_SQL = """
+CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+    session_id UNINDEXED,
+    kind UNINDEXED,
+    ref_id UNINDEXED,
+    text,
+    tokenize = 'porter unicode61'
+);
+"""
+
+_SEARCH_TRIGGERS_SQL = [
+    """CREATE TRIGGER IF NOT EXISTS search_summary_ai AFTER INSERT ON session_summaries BEGIN
+           INSERT INTO search_index (session_id, kind, ref_id, text)
+           VALUES (new.session_id, 'summary', new.id, new.text);
+       END;""",
+    """CREATE TRIGGER IF NOT EXISTS search_summary_ad AFTER DELETE ON session_summaries BEGIN
+           DELETE FROM search_index WHERE kind = 'summary' AND ref_id = old.id;
+       END;""",
+    """CREATE TRIGGER IF NOT EXISTS search_session_ai AFTER INSERT ON sessions BEGIN
+           INSERT INTO search_index (session_id, kind, text)
+           SELECT new.session_id, 'description', new.description
+           WHERE COALESCE(new.description, '') != '';
+           INSERT INTO search_index (session_id, kind, text)
+           SELECT new.session_id, 'notes', new.notes
+           WHERE COALESCE(new.notes, '') != '';
+       END;""",
+    """CREATE TRIGGER IF NOT EXISTS search_session_au AFTER UPDATE OF description, notes
+       ON sessions BEGIN
+           DELETE FROM search_index
+           WHERE session_id = old.session_id AND kind IN ('description', 'notes');
+           INSERT INTO search_index (session_id, kind, text)
+           SELECT new.session_id, 'description', new.description
+           WHERE COALESCE(new.description, '') != '';
+           INSERT INTO search_index (session_id, kind, text)
+           SELECT new.session_id, 'notes', new.notes
+           WHERE COALESCE(new.notes, '') != '';
+       END;""",
+    """CREATE TRIGGER IF NOT EXISTS search_session_ad AFTER DELETE ON sessions BEGIN
+           DELETE FROM search_index WHERE session_id = old.session_id;
+       END;""",
+]
+
+# Snippet highlight markers (STX/ETX): never present in real text, so clients can
+# escape the snippet and then swap these for their own markup.
+SNIPPET_START = "\x02"
+SNIPPET_END = "\x03"
+
+
+class SearchHit(TypedDict):
+    session_id: str
+    project_name: str
+    git_branch: str | None
+    last_seen: str
+    kind: str      # where the best hit came from: summary | description | notes
+    snippet: str   # best hit, matched terms wrapped in SNIPPET_START/SNIPPET_END
+    hits: int      # matching rows for this session
+
 
 def _migrate_legacy_event_tables(conn: sqlite3.Connection) -> None:
     """One-time forward migration from the short-lived heartbeat_events/stop_events
@@ -261,6 +323,12 @@ def init_db() -> None:
                 conn.execute(sql)
             except Exception as e:
                 logger.debug("Migration skipped (already applied?): %s — %s", sql.split("\n")[0][:60], e)
+        # After migrations: the triggers reference columns (description, notes) that
+        # older DBs only gain via _MIGRATIONS.
+        conn.execute(_SEARCH_SQL)
+        for sql in _SEARCH_TRIGGERS_SQL:
+            conn.execute(sql)
+        _rebuild_search_index(conn)
         for k, v in _SETTINGS_DEFAULTS.items():
             conn.execute(
                 "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v)
@@ -451,6 +519,66 @@ def last_auto_summary_text(session_id: str) -> str | None:
             (session_id,),
         ).fetchone()
     return row[0] if row else None
+
+
+def _rebuild_search_index(conn: sqlite3.Connection) -> None:
+    """Repopulate search_index from session_summaries and sessions."""
+    conn.execute("DELETE FROM search_index")
+    conn.execute(
+        """INSERT INTO search_index (session_id, kind, ref_id, text)
+           SELECT session_id, 'summary', id, text FROM session_summaries"""
+    )
+    conn.execute(
+        """INSERT INTO search_index (session_id, kind, text)
+           SELECT session_id, 'description', description FROM sessions
+           WHERE COALESCE(description, '') != ''"""
+    )
+    conn.execute(
+        """INSERT INTO search_index (session_id, kind, text)
+           SELECT session_id, 'notes', notes FROM sessions
+           WHERE COALESCE(notes, '') != ''"""
+    )
+
+
+def _fts_query(query: str) -> str | None:
+    """Turn free text into a safe FTS5 query: each word quoted (so FTS5 operators and
+    punctuation in the input are inert), ANDed, with a prefix match on the last word."""
+    words = re.findall(r"\w+", query)
+    if not words:
+        return None
+    quoted = [f'"{w}"' for w in words]
+    quoted[-1] += "*"
+    return " ".join(quoted)
+
+
+def search(query: str, limit: int = 20) -> list[SearchHit]:
+    """Full-text search over summaries, descriptions, and notes. One hit per session
+    (its best-ranked match), best sessions first."""
+    fts = _fts_query(query)
+    if fts is None:
+        return []
+    with _conn() as conn:
+        rows = conn.execute(
+            """WITH matches AS (
+                   SELECT session_id, kind,
+                          snippet(search_index, 3, ?, ?, '…', 16) AS snippet,
+                          bm25(search_index) AS score
+                   FROM search_index WHERE search_index MATCH ?
+               ), ranked AS (
+                   SELECT *,
+                          ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY score) AS rn,
+                          COUNT(*) OVER (PARTITION BY session_id) AS hits
+                   FROM matches
+               )
+               SELECT r.session_id, s.project_name, s.git_branch, s.last_seen,
+                      r.kind, r.snippet, r.hits
+               FROM ranked r JOIN sessions s ON s.session_id = r.session_id
+               WHERE r.rn = 1
+               ORDER BY r.score
+               LIMIT ?""",
+            (SNIPPET_START, SNIPPET_END, fts, limit),
+        ).fetchall()
+    return [cast(SearchHit, dict(r)) for r in rows]
 
 
 def update_description(session_id: str, description: str) -> None:

@@ -6,6 +6,7 @@ Completed work, newest first.
 
 ## Unreleased
 
+- Context search: FTS5 `search_index` (porter stemming) over every summary entry plus each session's description and notes, kept in sync by triggers and rebuilt from source rows on every startup. `GET /api/search?q=` returns one ranked hit per session with a highlighted snippet. Dashboard search box filters the table to matches in rank order (across stale and archived sessions; Esc clears). `/membridge-context <terms>` falls back to search when the argument isn't a session ID prefix. Phase 1 of `docs/tdd-context-search.md`.
 - `MEMBRIDGE_CLAUDE_CMD` sets the launcher used to resume sessions (Focus on a dead session, and Copy resume), e.g. a local wrapper that pins the provider/account. Defaults to `claude`.
 - Context meter: a Context column (current tokens, amber over 200k, red over 500k) and a panel line showing prompt-cache warmth and what the next turn costs just to re-read the context (cache read when warm, full rewrite when cold). Cold rewrites after idle gaps measured at 39-53% of Opus 5.5 main-session cost.
 - `hooks/membridge_statusline.py`: Claude Code status line with model, context size (same colour bands), cache warm/cold and session cost, built only from Claude Code's own status-line JSON. `install.sh` sets it (with `refreshInterval: 30`) only when no status line is configured.

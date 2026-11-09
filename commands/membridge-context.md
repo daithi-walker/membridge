@@ -1,17 +1,18 @@
 ---
-description: Load context for this session (or any session by ID prefix) from MemBridge
+description: Load context for this session, another session by ID prefix, or search all sessions
 allowed-tools:
   - Bash
-argument-hint: "[session-id-prefix]"
+argument-hint: "[session-id-prefix | search terms]"
 ---
 
 Fetch session context from MemBridge and use it as working context for this conversation.
 
 - **No argument** — loads this session's own metadata: tickets, notes, description, branch.
 - **With a session ID prefix** — loads that session's metadata plus full summary history. Use this to pull context from a different session into the current conversation.
+- **With search terms** (anything that isn't a session ID prefix) — full-text search across every session's summaries, descriptions, and notes; lists the best-matching sessions with the matched snippet.
 
 ```bash
-SESSION_ARG="${1:-}"
+SESSION_ARG="$ARGUMENTS"
 BASE_URL="http://localhost:7842"
 
 if [ -z "$SESSION_ARG" ]; then
@@ -26,15 +27,37 @@ else
   TARGET=$(curl -s "$BASE_URL/api/sessions" | python3 -c "
 import sys, json
 sessions = json.load(sys.stdin)
-arg = '$SESSION_ARG'
+arg = sys.argv[1]
 for s in sessions:
     if s['session_id'].startswith(arg):
         print(s['session_id'])
         break
-" 2>/dev/null)
+" "$SESSION_ARG" 2>/dev/null)
   if [ -z "$TARGET" ]; then
-    echo "No session found matching: $SESSION_ARG"
-    exit 1
+    # Not an ID prefix: treat the argument as a search query
+    python3 - "$SESSION_ARG" <<'PYEOF'
+import json, sys, urllib.error, urllib.parse, urllib.request
+
+q = sys.argv[1]
+url = "http://localhost:7842/api/search?" + urllib.parse.urlencode({"q": q, "limit": 10})
+try:
+    hits = json.loads(urllib.request.urlopen(url).read())
+except urllib.error.URLError as e:
+    print(f"MemBridge search failed: {e}")
+    sys.exit(0)
+if not hits:
+    print(f"No session or search match for: {q}")
+    sys.exit(0)
+print(f"## MemBridge search: {q}\n")
+for h in hits:
+    branch = f" · {h['git_branch']}" if h.get("git_branch") else ""
+    snippet = " ".join(h["snippet"].replace("\x02", "**").replace("\x03", "**").split())
+    print(f"- {h['session_id'][:8]} [{h['project_name']}{branch}] {h['last_seen'][:10]}"
+          f" ({h['hits']} match{'es' if h['hits'] != 1 else ''}, best in {h['kind']})")
+    print(f"    {snippet}")
+print("\nRun /membridge-context <id-prefix> to load a session's full history.")
+PYEOF
+    exit 0
   fi
 fi
 
@@ -100,4 +123,4 @@ except Exception:
 PYEOF
 ```
 
-After running, acknowledge the context. If tickets are set, call them out by number. If this is a cross-session lookup, summarise what that session was working on.
+After running, acknowledge the context. If tickets are set, call them out by number. If this is a cross-session lookup, summarise what that session was working on. If it was a search, summarise what the matching sessions cover and offer to load the most relevant one.
